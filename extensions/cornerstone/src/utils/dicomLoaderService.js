@@ -62,6 +62,24 @@ const wadorsRetriever = (
   headers = DICOMWeb.getAuthorizationHeader(),
   errorInterceptor = errorHandler.getHTTPErrorHandler()
 ) => {
+  // When an explicit Accept header is provided (e.g., for AWS HealthImaging),
+  // use fetch() directly to avoid dicomweb-client defaulting to
+  // 'multipart/related; type="application/dicom"' which AHI rejects with 400.
+  if (headers && headers.Accept) {
+    const instanceUrl = `${url}/studies/${studyInstanceUID}/series/${seriesInstanceUID}/instances/${sopInstanceUID}`;
+    return fetch(instanceUrl, { headers }).then(response => {
+      if (!response.ok) {
+        const error = new Error(`WADO-RS instance retrieval failed: ${response.status}`);
+        if (errorInterceptor) {
+          errorInterceptor(error);
+        }
+        throw error;
+      }
+      return response.arrayBuffer();
+    });
+  }
+
+  // Standard path via dicomweb-client for servers expecting multipart/related
   const config = {
     url,
     headers,

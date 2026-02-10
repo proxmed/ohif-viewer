@@ -182,8 +182,20 @@ async function _loadSegments({
 
   const { segmentationService, uiNotificationService } = servicesManager.services;
 
+  // Get the Accept header from the active data source config (e.g., for AWS HealthImaging)
+  const dataSourceDef = extensionManager.getActiveDataSourceDefinition();
+  const acceptHeader = dataSourceDef?.configuration?.acceptHeader;
+  const headersWithAccept = { ...headers };
+  if (acceptHeader?.length) {
+    headersWithAccept.Accept = acceptHeader[0];
+  }
+
   const { dicomLoaderService } = utilityModule.exports;
-  const arrayBuffer = await dicomLoaderService.findDicomDataPromise(segDisplaySet, null, headers);
+  const arrayBuffer = await dicomLoaderService.findDicomDataPromise(
+    segDisplaySet,
+    null,
+    headersWithAccept
+  );
 
   const referencedDisplaySet = servicesManager.services.displaySetService.getDisplaySetByUID(
     segDisplaySet.referencedDisplaySetInstanceUID
