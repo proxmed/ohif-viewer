@@ -67,7 +67,8 @@ const wadorsRetriever = (
   // 'multipart/related; type="application/dicom"' which AHI rejects with 400.
   if (headers && headers.Accept) {
     const instanceUrl = `${url}/studies/${studyInstanceUID}/series/${seriesInstanceUID}/instances/${sopInstanceUID}`;
-    return fetch(instanceUrl, { headers }).then(response => {
+    const instanceHeaders = { ...headers, Accept: 'application/dicom; transfer-syntax=*' };
+    return fetch(instanceUrl, { headers: instanceHeaders }).then(response => {
       if (!response.ok) {
         const error = new Error(`WADO-RS instance retrieval failed: ${response.status}`);
         if (errorInterceptor) {
