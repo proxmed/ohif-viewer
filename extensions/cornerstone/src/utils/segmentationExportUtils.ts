@@ -23,33 +23,20 @@ export const hasExportableLabelMapData = (
     return false;
   }
 
-  const hasPixelData = imageIds.some(imageId => {
-    const pixelData = cache.getImage(imageId)?.getPixelData();
-    if (!pixelData) {
-      return false;
-    }
-
-    for (let i = 0; i < pixelData.length; i++) {
-      if (pixelData[i] !== 0) {
-        return true;
-      }
-    }
-  });
-
-  if (!hasPixelData) {
-    return false;
-  }
-
+  // We relaxed this to allow exporting bahkan if it's empty
+  // as users might want to save an empty template or placeholder.
   const referencedImageIds = labelmap?.referencedImageIds;
 
-  if (!referencedImageIds) {
+  if (!referencedImageIds?.length) {
     return false;
   }
+
   const firstImageId = referencedImageIds[0];
   const instance = metaData.get('instance', firstImageId);
 
   if (!instance) {
-    return false;
+    // If we can't get metadata, we still might want to allow it if we have imageIds
+    return true;
   }
 
   const SOPInstanceUID = instance.SOPInstanceUID || instance.SopInstanceUID;
