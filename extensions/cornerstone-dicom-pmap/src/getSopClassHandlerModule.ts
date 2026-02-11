@@ -184,8 +184,20 @@ async function _load(
   return promise;
 }
 
-async function _loadParametricMap({ displaySet, headers }: withAppTypes) {
-  const arrayBuffer = await dicomLoaderService.findDicomDataPromise(displaySet, null, headers);
+async function _loadParametricMap({ extensionManager, displaySet, headers }: withAppTypes) {
+  // Get the Accept header from the active data source config (e.g., for AWS HealthImaging)
+  const dataSourceDef = extensionManager.getActiveDataSourceDefinition();
+  const acceptHeader = dataSourceDef?.configuration?.acceptHeader;
+  const headersWithAccept = { ...headers };
+  if (acceptHeader?.length) {
+    headersWithAccept.Accept = acceptHeader[0];
+  }
+
+  const arrayBuffer = await dicomLoaderService.findDicomDataPromise(
+    displaySet,
+    null,
+    headersWithAccept
+  );
   const referencedVolumeId = displaySet.getReferencedVolumeId();
   const cachedReferencedVolume = cache.getVolume(referencedVolumeId);
 

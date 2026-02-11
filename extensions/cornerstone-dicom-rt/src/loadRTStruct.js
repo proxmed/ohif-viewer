@@ -169,11 +169,20 @@ const getRTStructInstance = async ({ extensionManager, rtStructDisplaySet, heade
   const utilityModule = extensionManager.getModuleEntry(
     '@ohif/extension-cornerstone.utilityModule.common'
   );
+
+  // Get the Accept header from the active data source config (e.g., for AWS HealthImaging)
+  const dataSourceDef = extensionManager.getActiveDataSourceDefinition();
+  const acceptHeader = dataSourceDef?.configuration?.acceptHeader;
+  const headersWithAccept = { ...headers };
+  if (acceptHeader?.length) {
+    headersWithAccept.Accept = acceptHeader[0];
+  }
+
   const { dicomLoaderService } = utilityModule.exports;
   const segArrayBuffer = await dicomLoaderService.findDicomDataPromise(
     rtStructDisplaySet,
     null,
-    headers
+    headersWithAccept
   );
   const dicomData = DicomMessage.readFile(segArrayBuffer);
   const rtStructDataset = DicomMetaDictionary.naturalizeDataset(dicomData.dict);
