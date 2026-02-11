@@ -177,6 +177,49 @@ const commandsModule = ({
         ...options,
       });
 
+      // Post-process: populate PixelMeasuresSequence from source image metadata
+      // The adapters may wipe this sequence, so we restore it from the referenced images
+      const firstImageId = referencedImages[0]?.imageId;
+      const imagePlane = firstImageId ? metaData.get('imagePlaneModule', firstImageId) : null;
+
+      if (imagePlane && generatedSegmentation?.dataset?.SharedFunctionalGroupsSequence) {
+        const pixelMeasures =
+          generatedSegmentation.dataset.SharedFunctionalGroupsSequence.PixelMeasuresSequence || {};
+
+        if (imagePlane.pixelSpacing) {
+          pixelMeasures.PixelSpacing = Array.isArray(imagePlane.pixelSpacing)
+            ? imagePlane.pixelSpacing
+            : [imagePlane.rowPixelSpacing, imagePlane.columnPixelSpacing];
+        }
+
+        if (imagePlane.sliceThickness) {
+          pixelMeasures.SliceThickness = imagePlane.sliceThickness;
+        }
+
+        // Compute SpacingBetweenSlices from image positions if possible
+        if (referencedImages.length > 1) {
+          const secondImageId = referencedImages[1]?.imageId;
+          const secondImagePlane = secondImageId
+            ? metaData.get('imagePlaneModule', secondImageId)
+            : null;
+          if (imagePlane.imagePositionPatient && secondImagePlane?.imagePositionPatient) {
+            const ipp1 = imagePlane.imagePositionPatient;
+            const ipp2 = secondImagePlane.imagePositionPatient;
+            const spacing = Math.sqrt(
+              (ipp2[0] - ipp1[0]) ** 2 + (ipp2[1] - ipp1[1]) ** 2 + (ipp2[2] - ipp1[2]) ** 2
+            );
+            if (spacing > 0) {
+              pixelMeasures.SpacingBetweenSlices = spacing;
+            }
+          }
+        } else if (imagePlane.spacingBetweenSlices) {
+          pixelMeasures.SpacingBetweenSlices = imagePlane.spacingBetweenSlices;
+        }
+
+        generatedSegmentation.dataset.SharedFunctionalGroupsSequence.PixelMeasuresSequence =
+          pixelMeasures;
+      }
+
       return generatedSegmentation;
     },
     /**
