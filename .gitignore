@@ -63,3 +63,6 @@ tests/playwright-report/
 
 # Backup files
 *~
+
+# Generated AHI config with secrets
+**/config/ahi.local.js
