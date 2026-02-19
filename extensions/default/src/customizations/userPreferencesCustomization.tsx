@@ -4,13 +4,15 @@ import { UserPreferencesModal, FooterAction } from '@ohif/ui-next';
 import { useTranslation } from 'react-i18next';
 import i18n from '@ohif/i18n';
 
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@ohif/ui-next';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem, Input, Label } from '@ohif/ui-next';
 
 const { availableLanguages, defaultLanguage, currentLanguage: currentLanguageFn } = i18n;
 
 interface HotkeyDefinition {
   keys: string;
   label: string;
+  commandName?: string;
+  commandOptions?: any;
 }
 
 interface HotkeyDefinitions {
@@ -37,7 +39,7 @@ function UserPreferencesModalDefault({ hide }: { hide: () => void }) {
     }
 
     if (!Object.keys(hotkeyDefinitions).length) {
-      hotkeysManager.setHotkeys(fallbackHotkeyDefinitions);
+      hotkeysManager.setHotkeys(fallbackHotkeyDefinitions as any);
     }
   }, [hotkeysManager, hotkeyDefaults, hotkeyDefinitions, fallbackHotkeyDefinitions]);
 
@@ -51,9 +53,30 @@ function UserPreferencesModalDefault({ hide }: { hide: () => void }) {
 
   const currentLanguage = currentLanguageFn();
 
+  const customWLDefinitions = Object.entries(initialHotkeyDefinitions)
+    .filter(([, def]: any) => def.commandName === 'setCustomWindowLevel')
+    .map(([id, def]) => ({ id, ...def }));
+
+  const getSavedWLs = () => {
+    const wls = {};
+    customWLDefinitions.forEach((def: any) => {
+      const presetId = def.commandOptions?.id || 'custom1';
+      try {
+        const saved = localStorage.getItem(`ohif.customWindowLevel.${presetId}`);
+        wls[presetId] = saved ? JSON.parse(saved) : { window: '400', level: '40' };
+      } catch {
+        wls[presetId] = { window: '400', level: '40' };
+      }
+    });
+    return wls;
+  };
+
+  const initialWLs = getSavedWLs();
+
   const [state, setState] = useState({
     hotkeyDefinitions: initialHotkeyDefinitions,
     languageValue: currentLanguage.value,
+    customWLs: initialWLs,
   });
 
   const onLanguageChangeHandler = (value: string) => {
@@ -74,10 +97,17 @@ function UserPreferencesModalDefault({ hide }: { hide: () => void }) {
   };
 
   const onResetHandler = () => {
+    const defaultWLs = {};
+    customWLDefinitions.forEach((def: any) => {
+      const presetId = def.commandOptions?.id || 'custom1';
+      defaultWLs[presetId] = { window: '400', level: '40' };
+    });
+
     setState(state => ({
       ...state,
       languageValue: defaultLanguage.value,
       hotkeyDefinitions: resolvedHotkeyDefaults,
+      customWLs: defaultWLs,
     }));
 
     hotkeysManager.restoreDefaultBindings();
@@ -165,6 +195,55 @@ function UserPreferencesModalDefault({ hide }: { hide: () => void }) {
             />
           ))}
         </UserPreferencesModal.HotkeysGrid>
+
+        <div className="mt-4 border-t border-muted pt-4 space-y-6">
+          <UserPreferencesModal.SubHeading>
+            {t('Custom Window Levels')}
+          </UserPreferencesModal.SubHeading>
+
+          {customWLDefinitions.map((def: any) => {
+            const presetId = def.commandOptions?.id;
+            const wl = state.customWLs[presetId] || { window: '400', level: '40' };
+
+            return (
+              <div key={def.id} className="flex items-center space-x-8">
+                <div className="flex flex-col space-y-1">
+                  <Label className="text-xs text-muted-foreground">{t(def.label)} - Window</Label>
+                  <Input
+                    className="w-24"
+                    value={wl.window}
+                    onChange={e => {
+                      const newWLs = { ...state.customWLs, [presetId]: { ...wl, window: e.target.value } };
+                      setState({ ...state, customWLs: newWLs });
+                    }}
+                    placeholder="400"
+                  />
+                </div>
+                <div className="flex flex-col space-y-1">
+                  <Label className="text-xs text-muted-foreground">{t('Level')}</Label>
+                  <Input
+                    className="w-24"
+                    value={wl.level}
+                    onChange={e => {
+                      const newWLs = { ...state.customWLs, [presetId]: { ...wl, level: e.target.value } };
+                      setState({ ...state, customWLs: newWLs });
+                    }}
+                    placeholder="40"
+                  />
+                </div>
+                <div className="flex-1 max-w-xs pt-5">
+                  <UserPreferencesModal.Hotkey
+                    label={t('Hotkey')}
+                    value={state.hotkeyDefinitions[def.id]?.keys}
+                    onChange={newKeys => onHotkeyChangeHandler(def.id, newKeys)}
+                    placeholder={state.hotkeyDefinitions[def.id]?.keys}
+                    hotkeys={hotkeysModule}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </UserPreferencesModal.Body>
       <FooterAction>
         <FooterAction.Left>
@@ -190,7 +269,14 @@ function UserPreferencesModalDefault({ hide }: { hide: () => void }) {
                 window.location.reload();
                 return; // Exit early since we're reloading
               }
-              hotkeysManager.setHotkeys(state.hotkeyDefinitions);
+              Object.entries(state.customWLs).forEach(([presetId, wl]) => {
+                localStorage.setItem(
+                  `ohif.customWindowLevel.${presetId}`,
+                  JSON.stringify(wl)
+                );
+              });
+
+              hotkeysManager.setHotkeys(state.hotkeyDefinitions as any);
               hotkeysModule.stopRecord();
               hotkeysModule.unpause();
               hide();
