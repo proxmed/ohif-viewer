@@ -17,7 +17,28 @@ export default function init({
   commandsManager,
   hotkeysManager,
 }: withAppTypes): void {
-  const { toolbarService, cineService, viewportGridService } = servicesManager.services;
+  const { toolbarService, cineService, viewportGridService, customizationService } = servicesManager.services;
+
+  // Initialize custom Window/Level customizations from localStorage
+  const customWLs = {};
+  for (let i = 1; i <= 10; i++) { // Supporting up to 10 potential custom slots
+    try {
+      const saved = localStorage.getItem(`ohif.customWindowLevel.custom${i}`);
+      if (saved) {
+        customWLs[`custom${i}`] = JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Error loading custom W/L from localStorage', e);
+    }
+  }
+
+  if (Object.keys(customWLs).length > 0) {
+    customizationService.setCustomizations({
+      customWindowLevels: {
+        value: customWLs,
+      },
+    }, customizationService.Scope.Global);
+  }
 
   toolbarService.registerEventForToolbarUpdate(cineService, [
     cineService.EVENTS.CINE_STATE_CHANGED,

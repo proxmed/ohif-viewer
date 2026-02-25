@@ -950,23 +950,14 @@ function commandsModule({
     },
     setCustomWindowLevel: ({ id }) => {
       const activeViewport = viewportGridService.getActiveViewportId();
-      let window = '400';
-      let level = '40';
-      try {
-        const saved = localStorage.getItem(`ohif.customWindowLevel.${id}`);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          window = parsed.window;
-          level = parsed.level;
-        }
-      } catch (e) {
-        console.error(`Error reading custom W/L for ${id} from localStorage`, e);
-      }
+      const customization = customizationService.getCustomization('customWindowLevels');
+      const customWLs = (customization as { value?: Record<string, { window: string; level: string }> })?.value || {};
+      const wl = customWLs[id] || { window: '400', level: '40' };
 
       actions.setViewportWindowLevel({
         viewportId: activeViewport,
-        windowWidth: window,
-        windowCenter: level,
+        windowWidth: Number(wl.window),
+        windowCenter: Number(wl.level),
       });
     },
     getVolumeIdForDisplaySet: ({ viewportId, displaySetInstanceUID }) => {

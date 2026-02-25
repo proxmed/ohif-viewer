@@ -7,11 +7,6 @@ const defaultWindowLevelPresets = {
     { id: 'ct-liver', description: 'Liver', window: '150', level: '90' },
     { id: 'ct-bone', description: 'Bone', window: '2500', level: '480' },
     { id: 'ct-brain', description: 'Brain', window: '80', level: '40' },
-    { id: 'ct-trest', description: 'Trest', window: '1', level: '1' },
-    { id: 'ct-testing', description: 'testing', window: '30', level: '40' },
-    { id: 'ct-empty2', description: 'Empty2', window: 'Empty2', level: 'Empty2' },
-    { id: 'ct-empty3', description: 'Empty3', window: 'Empty3', level: 'Empty3' },
-    { id: 'ct-empty4', description: 'Empty4', window: 'Empty4', level: 'Empty4' },
   ],
 
   PT: [
