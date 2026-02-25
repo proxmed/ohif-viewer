@@ -948,6 +948,18 @@ function commandsModule({
         windowCenter: windowLevelPreset.level,
       });
     },
+    setCustomWindowLevel: ({ id }) => {
+      const activeViewport = viewportGridService.getActiveViewportId();
+      const customization = customizationService.getCustomization('customWindowLevels');
+      const customWLs = (customization as { value?: Record<string, { window: string; level: string }> })?.value || {};
+      const wl = customWLs[id] || { window: '400', level: '40' };
+
+      actions.setViewportWindowLevel({
+        viewportId: activeViewport,
+        windowWidth: Number(wl.window),
+        windowCenter: Number(wl.level),
+      });
+    },
     getVolumeIdForDisplaySet: ({ viewportId, displaySetInstanceUID }) => {
       const viewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
       if (viewport instanceof BaseVolumeViewport) {
@@ -2479,6 +2491,9 @@ function commandsModule({
     },
     setViewportWindowLevel: {
       commandFn: actions.setViewportWindowLevel,
+    },
+    setCustomWindowLevel: {
+      commandFn: actions.setCustomWindowLevel,
     },
     setWindowLevel: {
       commandFn: actions.setWindowLevel,
