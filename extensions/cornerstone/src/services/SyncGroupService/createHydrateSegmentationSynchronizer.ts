@@ -100,5 +100,17 @@ const segmentationRepresentationModifiedCallback = async (
  * Extracts the displaySetInstanceUIDs from a viewportInfo.
  */
 function extractDisplaySetUIDs(viewportInfo) {
-  return viewportInfo.getViewportData().data.map(ds => ds.displaySetInstanceUID);
+  if (!viewportInfo) {
+    return [];
+  }
+  const viewportData = viewportInfo.getViewportData();
+  if (!viewportData?.data) {
+    return [];
+  }
+
+  if (Array.isArray(viewportData.data)) {
+    return viewportData.data.map(ds => ds.displaySetInstanceUID);
+  }
+
+  return [viewportData.data.displaySetInstanceUID];
 }

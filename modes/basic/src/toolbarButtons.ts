@@ -159,6 +159,14 @@ const toolbarButtons: Button[] = [
     },
   },
   {
+    id: 'mipButton',
+    uiType: 'ohif.mipButton',
+    props: {
+      label: 'MIP',
+      tooltip: 'Toggle MIP / adjust slab thickness',
+    },
+  },
+  {
     id: 'opacityMenu',
     uiType: 'ohif.opacityMenu',
     props: {

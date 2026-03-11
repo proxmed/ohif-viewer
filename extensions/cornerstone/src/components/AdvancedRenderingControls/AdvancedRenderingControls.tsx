@@ -87,9 +87,6 @@ function AdvancedRenderingControls({
     return null;
   }
 
-  if (!hasColorbar) {
-    return null;
-  }
 
   return (
     <div className={classNames('flex gap-2', getFlexDirectionClassName(location))}>

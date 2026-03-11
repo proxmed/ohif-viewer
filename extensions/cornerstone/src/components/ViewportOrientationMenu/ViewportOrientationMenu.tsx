@@ -25,6 +25,11 @@ function ViewportOrientationMenu({
   const { servicesManager, commandsManager } = useSystem();
   const { cornerstoneViewportService, toolbarService } = servicesManager.services;
   const viewportInfo = cornerstoneViewportService.getViewportInfo(viewportId);
+
+  if (!viewportInfo) {
+    return null;
+  }
+
   const viewportOrientation = viewportInfo.getOrientation();
 
   const [gridState] = useViewportGrid();
@@ -141,7 +146,7 @@ function ViewportOrientationMenu({
               variant="ghost"
               size="icon"
               disabled={disabled}
-              onClick={() => {}}
+              onClick={() => { }}
             >
               {Icon}
             </Button>

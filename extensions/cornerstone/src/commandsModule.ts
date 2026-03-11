@@ -55,6 +55,7 @@ import { EasingFunctionEnum } from './utils/transitions';
 import { createSegmentationForViewport } from './utils/createSegmentationForViewport';
 import { utilities as segmentationUtilities } from '@cornerstonejs/tools/segmentation';
 import i18n from '@ohif/i18n';
+import getCornerstoneBlendMode from './utils/getCornerstoneBlendMode';
 
 const { add, intersect, subtract, copy } = cstUtils.contourSegmentation;
 
@@ -135,17 +136,17 @@ function commandsModule({
     displaySetService,
   } = servicesManager.services as AppTypes.Services;
 
-  function _getActiveViewportEnabledElement() {
+  const _getActiveViewportEnabledElement = () => {
     return getActiveViewportEnabledElement(viewportGridService);
-  }
+  };
 
-  function _getViewportEnabledElement(viewportId: string) {
+  const _getViewportEnabledElement = (viewportId: string) => {
     return getViewportEnabledElement(viewportId);
-  }
+  };
 
   function _getActiveViewportToolGroupId() {
     const viewport = _getActiveViewportEnabledElement();
-    return toolGroupService.getToolGroupForViewport(viewport.id);
+    return toolGroupService.getToolGroupForViewport((viewport as any)?.viewportId || (viewport as any)?.id);
   }
 
   function _getActiveSegmentationInfo() {
@@ -347,9 +348,10 @@ function commandsModule({
           'panelSegmentation.disableEditing'
         );
         if (disableEditing) {
-          const segmentationRepresentations = segmentationService.getSegmentationRepresentations(
+          const segmentationRepresentations = (segmentationService as any).getSegmentationRepresentations(
             viewportId,
             {
+              SeriesNumber: String(displaySet.SeriesNumber),
               segmentationId: displaySet.displaySetInstanceUID,
             }
           );
@@ -389,7 +391,7 @@ function commandsModule({
         return results;
       }
     },
-    runSegmentBidirectional: async ({ segmentationId, segmentIndex } = {}) => {
+    runSegmentBidirectional: async ({ segmentationId, segmentIndex }: any = {}) => {
       // Get active segmentation if not specified
       const targetSegmentation =
         segmentationId && segmentIndex
@@ -578,13 +580,17 @@ function commandsModule({
       });
 
       const isAnnotation = toolName => {
+        function _getViewportId(enabledElement: any) {
+          return enabledElement?.viewportId || enabledElement?.id;
+        }
         const enabledElement = getEnabledElement(element);
 
         if (!enabledElement) {
           return;
         }
 
-        const { renderingEngineId, viewportId } = enabledElement;
+        const renderingEngineId = (enabledElement as any).renderingEngineId;
+        const viewportId = _getViewportId(enabledElement);
         const toolGroup = ToolGroupManager.getToolGroupForViewport(viewportId, renderingEngineId);
 
         const toolInstance = toolGroup.getToolInstance(toolName);
@@ -850,7 +856,9 @@ function commandsModule({
       const { viewports } = viewportGridService.getState();
       const { isCineEnabled } = cineService.getState();
       cineService.setIsCineEnabled(!isCineEnabled);
-      viewports.forEach((_, index) => cineService.setCine({ id: index, isPlaying: false }));
+      viewports.forEach((_, id) =>
+        (cineService as any).setCine({ id, isPlaying: !isCineEnabled, frameRate: 24 })
+      );
     },
 
     setViewportWindowLevel({
@@ -898,6 +906,7 @@ function commandsModule({
       }
       viewport.render();
     },
+
     toggleViewportColorbar: ({ viewportId, displaySetInstanceUIDs, options = {} }) => {
       const hasColorbar = colorbarService.hasColorbar(viewportId);
       if (hasColorbar) {
@@ -1305,7 +1314,7 @@ function commandsModule({
       colormap = { ...colormap, opacity: hpOpacity || opacity };
 
       if (viewport instanceof StackViewport) {
-        viewport.setProperties({ colormap });
+        (viewport as any).setProperties({ colormap });
       }
 
       if (viewport instanceof VolumeViewport) {
@@ -1842,6 +1851,7 @@ function commandsModule({
         measurementService.remove(activeAnnotationUID);
       });
     },
+
     setDisplaySetsForViewports: ({ viewportsToUpdate }) => {
       const { cineService, viewportGridService } = servicesManager.services;
       // Stopping the cine of modified viewports before changing the viewports to
@@ -2106,12 +2116,74 @@ function commandsModule({
         return;
       }
 
-      viewport.setOrientation(orientation);
-      viewport.render();
+      (viewport as any).setOrientation?.(orientation);
+      (viewport as any).render?.();
 
       // update the orientation in the viewport info
       const viewportInfo = cornerstoneViewportService.getViewportInfo(viewportId);
       viewportInfo.setOrientation(orientation);
+    },
+    setViewportBlendMode: ({ viewportId, blendMode, volumeId, displaySetInstanceUID }) => {
+      console.log('Command: setViewportBlendMode', { viewportId, blendMode, volumeId });
+      const {
+        displaySetService,
+        cornerstoneViewportService,
+        viewportGridService,
+      } = servicesManager.services;
+
+      let volumeIdToUse = volumeId;
+      const viewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
+
+      const anyProjection = ['mip', 'minip', 'avg'].includes(blendMode?.toLowerCase());
+      if (viewport instanceof StackViewport && anyProjection) {
+        const displaySetUIDs = viewportGridService.getDisplaySetsUIDsForViewport(viewportId);
+        if (displaySetUIDs.length > 0) {
+          viewportGridService.setDisplaySetsForViewports([
+            {
+              viewportId,
+              displaySetInstanceUIDs: displaySetUIDs,
+              viewportOptions: {
+                viewportType: 'volume',
+                orientation: 'axial',
+                displaySetOptions: [
+                  {
+                    blendMode: getCornerstoneBlendMode(blendMode),
+                    slabThickness: 20,
+                  },
+                ],
+              },
+            },
+          ]);
+          return;
+        }
+      }
+
+      if (!volumeIdToUse && displaySetInstanceUID) {
+        if (viewport instanceof BaseVolumeViewport) {
+          const volumeIds = viewport.getAllVolumeIds();
+          volumeIdToUse = volumeIds.find(id => id.includes(displaySetInstanceUID));
+        }
+      }
+      cornerstoneViewportService.setBlendMode(viewportId, blendMode, volumeIdToUse);
+    },
+    setViewportSlabThickness: ({ viewportId, slabThickness }) => {
+      const { cornerstoneViewportService } = servicesManager.services;
+      const viewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
+
+      if (viewport instanceof BaseVolumeViewport) {
+        viewport.setSlabThickness(slabThickness);
+        viewport.render();
+
+        // Update displaySetOptions for persistence
+        const viewportInfo = cornerstoneViewportService.getViewportInfo(viewportId);
+        if (viewportInfo) {
+          const displaySetOptions = viewportInfo.getDisplaySetOptions();
+          if (displaySetOptions?.length > 0) {
+            displaySetOptions[0].slabThickness = slabThickness;
+            viewportInfo.setDisplaySetOptions(displaySetOptions);
+          }
+        }
+      }
     },
     /**
      * Toggles the horizontal flip state of the viewport.
@@ -2492,6 +2564,12 @@ function commandsModule({
     setViewportWindowLevel: {
       commandFn: actions.setViewportWindowLevel,
     },
+    setViewportBlendMode: {
+      commandFn: actions.setViewportBlendMode,
+    },
+    setViewportSlabThickness: {
+      commandFn: actions.setViewportSlabThickness,
+    },
     setCustomWindowLevel: {
       commandFn: actions.setCustomWindowLevel,
     },
@@ -2742,6 +2820,8 @@ function commandsModule({
     addNewSegment: actions.addNewSegment,
     loadSegmentationDisplaySetsForViewport: actions.loadSegmentationDisplaySetsForViewport,
     setViewportOrientation: actions.setViewportOrientation,
+    setViewportBlendMode: actions.setViewportBlendMode,
+    setViewportSlabThickness: actions.setViewportSlabThickness,
     hydrateSecondaryDisplaySet: actions.hydrateSecondaryDisplaySet,
     getVolumeIdForDisplaySet: actions.getVolumeIdForDisplaySet,
     triggerCreateAnnotationMemo: actions.triggerCreateAnnotationMemo,

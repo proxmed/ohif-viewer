@@ -64,6 +64,7 @@ function modeFactory({ modeConfiguration }) {
         'windowLevelMenuEmbedded',
         'voiManualControlMenu',
         'Colorbar',
+        'mip',
         'opacityMenu',
         'thresholdMenu',
       ]);

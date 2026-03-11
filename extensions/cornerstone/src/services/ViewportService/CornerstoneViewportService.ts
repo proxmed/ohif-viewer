@@ -39,6 +39,7 @@ import { useSynchronizersStore } from '../../stores/useSynchronizersStore';
 import { useSegmentationPresentationStore } from '../../stores/useSegmentationPresentationStore';
 import getClosestOrientationFromIOP from '../../utils/isReferenceViewable';
 import { BlendModes } from '@cornerstonejs/core/enums';
+import getCornerstoneBlendMode from '../../utils/getCornerstoneBlendMode';
 
 const EVENTS = {
   VIEWPORT_DATA_CHANGED: 'event::cornerstoneViewportService:viewportDataChanged',
@@ -325,6 +326,9 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
     }
 
     const viewportInfo = this.viewportsById.get(viewportId);
+    if (!viewportInfo) {
+      return;
+    }
 
     return {
       viewportType: viewportInfo.getViewportType(),
@@ -370,6 +374,9 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
     }
 
     const viewportInfo = this.viewportsById.get(viewportId);
+    if (!viewportInfo) {
+      return;
+    }
 
     return {
       viewportType: viewportInfo.getViewportType(),
@@ -413,21 +420,21 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
     // using its viewport (same viewportId as the new viewportInfo)
     const viewportInfo = this.viewportsById.get(viewportId);
 
+    if (!viewportInfo) {
+      return;
+    }
+
     // We should store the presentation for the current viewport since we can't only
     // rely to store it WHEN the viewport is disabled since we might keep around the
     // same viewport/element and just change the viewportData for it (drag and drop etc.)
     // the disableElement storePresentation handle would not be called in this case
     // and we would lose the presentation.
-    this.storePresentation({ viewportId: viewportInfo.getViewportId() });
+    this.storePresentation({ viewportId });
 
     // Todo: i don't like this here, move it
     this.servicesManager.services.segmentationService.clearSegmentationRepresentations(
-      viewportInfo.getViewportId()
+      viewportId
     );
-
-    if (!viewportInfo) {
-      throw new Error('element is not enabled for the given viewportId');
-    }
 
     // override the viewportOptions and displaySetOptions with the public ones
     // since those are the newly set ones, we set them here so that it handles defaults
@@ -500,6 +507,69 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
     return this.viewportsById.get(viewportId).getViewportOptions();
   }
 
+  public setBlendMode(viewportId: string, blendMode: string, volumeId?: string): void {
+    console.log('CornerstoneViewportService: setBlendMode', { viewportId, blendMode, volumeId });
+    const viewport = this.getCornerstoneViewport(viewportId);
+
+    if (!(viewport instanceof BaseVolumeViewport)) {
+      console.warn('CornerstoneViewportService: setBlendMode failed - viewport is not a BaseVolumeViewport', viewport?.type);
+      return;
+    }
+
+    const csBlendMode = getCornerstoneBlendMode(blendMode);
+
+    if (!volumeId) {
+      const viewportInfo = this.getViewportInfo(viewportId);
+      if (viewportInfo) {
+        const viewportData = viewportInfo.getViewportData();
+        if (viewportData?.data) {
+          const data = Array.isArray(viewportData.data) ? viewportData.data : [viewportData.data];
+          if (data.length > 0 && data[0].displaySetInstanceUID) {
+            const volumeIds = (viewport as BaseVolumeViewport).getAllVolumeIds();
+            volumeId = volumeIds.find(id => id.includes(data[0].displaySetInstanceUID));
+          }
+        }
+      }
+    }
+
+    viewport.setBlendMode(csBlendMode, volumeId ? [volumeId] : undefined);
+
+    // Automatically adjust slab thickness for better projection visibility
+    const isProjectionMode =
+      csBlendMode === BlendModes.MAXIMUM_INTENSITY_BLEND ||
+      csBlendMode === BlendModes.MINIMUM_INTENSITY_BLEND ||
+      csBlendMode === BlendModes.AVERAGE_INTENSITY_BLEND;
+
+    if (isProjectionMode) {
+      const currentThickness = (viewport as BaseVolumeViewport).getSlabThickness();
+      if (!currentThickness || currentThickness < 1) {
+        (viewport as BaseVolumeViewport).setSlabThickness(20, volumeId ? [volumeId] : undefined);
+      }
+    } else if (csBlendMode === BlendModes.COMPOSITE) {
+      (viewport as BaseVolumeViewport).setSlabThickness(0.1, volumeId ? [volumeId] : undefined);
+    }
+
+
+    viewport.render();
+
+    // Update displaySetOptions for persistence if needed
+    const viewportInfo = this.getViewportInfo(viewportId);
+    if (viewportInfo) {
+      const displaySetOptions = viewportInfo.getDisplaySetOptions();
+      if (displaySetOptions?.length > 0) {
+        displaySetOptions[0].blendMode = csBlendMode;
+        // Also sync slab thickness to options if we changed it
+        displaySetOptions[0].slabThickness = (viewport as BaseVolumeViewport).getSlabThickness();
+        viewportInfo.setDisplaySetOptions(displaySetOptions);
+      }
+    }
+
+    // Broadcast that viewport properties have changed so hooks can update
+    this._broadcastEvent(csEnums.Events.IMAGE_RENDERED, {
+      viewportId,
+    });
+  }
+
   /**
    * Retrieves the Cornerstone viewport with the specified ID.
    *
@@ -532,6 +602,9 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
 
   public getOrientation(viewportId: string): string {
     const viewportInfo = this.getViewportInfo(viewportId);
+    if (!viewportInfo) {
+      return;
+    }
     return viewportInfo.getOrientation();
   }
 
@@ -831,7 +904,7 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
       properties.colormap = colormap ?? properties.colormap;
     }
 
-    viewport.element.addEventListener(csEnums.Events.VIEWPORT_NEW_IMAGE_SET, evt => {
+    viewport.element.addEventListener(csEnums.Events.VIEWPORT_NEW_IMAGE_SET, (evt: any) => {
       const { element } = evt.detail;
 
       if (element !== viewport.element) {
@@ -896,7 +969,9 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
       numberOfSlices = imageIds.length;
     } else if (viewportType === csEnums.ViewportType.ORTHOGRAPHIC) {
       const viewport = this.getCornerstoneViewport(viewportInfo.getViewportId());
-      const imageSliceData = csUtils.getImageSliceDataForVolumeViewport(viewport);
+      const imageSliceData = csUtils.getImageSliceDataForVolumeViewport(
+        viewport as Types.IVolumeViewport
+      );
 
       if (!imageSliceData) {
         return;
@@ -1019,13 +1094,25 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
     // }
 
     // This returns the async continuation only
-    return this.setVolumesForViewport(viewport, volumeInputArray, presentations);
+    return this.setVolumesForViewport(viewport, volumeInputArray, presentations, viewportInfo);
   }
 
-  public async setVolumesForViewport(viewport, volumeInputArray, presentations) {
+  public async setVolumesForViewport(
+    viewport,
+    volumeInputArray,
+    presentations,
+    viewportInfo: ViewportInfo
+  ) {
     const { displaySetService, viewportGridService } = this.servicesManager.services;
 
-    const viewportInfo = this.getViewportInfo(viewport.id);
+    if (!viewportInfo) {
+      viewportInfo = this.viewportsById.get(viewport.id);
+    }
+
+    if (!viewportInfo) {
+      return;
+    }
+
     const displaySetOptions = viewportInfo.getDisplaySetOptions();
     const displaySetUIDs = viewportGridService.getDisplaySetsUIDsForViewport(viewport.id);
     const displaySet = displaySetService.getDisplaySetByUID(displaySetUIDs[0]);
@@ -1195,7 +1282,7 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
       type: representationType,
       config: {
         blendMode:
-          viewport?.getBlendMode?.() === 1 ? BlendModes.LABELMAP_EDGE_PROJECTION_BLEND : undefined,
+          (viewport as any).getBlendMode?.() === 1 ? BlendModes.LABELMAP_EDGE_PROJECTION_BLEND : undefined,
       },
     });
 
@@ -1207,7 +1294,14 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
   // keeping the camera position when the viewport data is changed
   public updateViewport(viewportId: string, viewportData, keepCamera = false) {
     const viewportInfo = this.getViewportInfo(viewportId);
+    if (!viewportInfo) {
+      return;
+    }
     const viewport = this.getCornerstoneViewport(viewportId);
+
+    if (!viewport) {
+      return;
+    }
     const viewportCamera = viewport.getCamera();
 
     let displaySetPromise;
@@ -1292,8 +1386,8 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
       const { dimensions, spacing } = imageVolume;
       const slabThickness = Math.sqrt(
         Math.pow(dimensions[0] * spacing[0], 2) +
-          Math.pow(dimensions[1] * spacing[1], 2) +
-          Math.pow(dimensions[2] * spacing[2], 2)
+        Math.pow(dimensions[1] * spacing[1], 2) +
+        Math.pow(dimensions[2] * spacing[2], 2)
       );
 
       return slabThickness;
@@ -1464,7 +1558,7 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
           type: representationType,
           config: {
             blendMode:
-              viewport?.getBlendMode?.() === 1
+              (viewport as any).getBlendMode?.() === 1
                 ? BlendModes.LABELMAP_EDGE_PROJECTION_BLEND
                 : undefined,
           },

@@ -132,15 +132,21 @@ const bindings = [
   },
   {
     commandName: 'setWindowLevelPreset',
-    commandOptions: { presetName: 'ct-bone', presetIndex: 2 },
-    label: 'W/L Bone',
+    commandOptions: { presetName: 'ct-liver', presetIndex: 2 },
+    label: 'W/L Liver',
     keys: ['3'],
   },
   {
     commandName: 'setWindowLevelPreset',
-    commandOptions: { presetName: 'ct-brain', presetIndex: 3 },
-    label: 'W/L Brain',
+    commandOptions: { presetName: 'ct-bone', presetIndex: 3 },
+    label: 'W/L Bone',
     keys: ['4'],
+  },
+  {
+    commandName: 'setWindowLevelPreset',
+    commandOptions: { presetName: 'ct-brain', presetIndex: 4 },
+    label: 'W/L Brain',
+    keys: ['5'],
   },
   {
     commandName: 'setCustomWindowLevel',
