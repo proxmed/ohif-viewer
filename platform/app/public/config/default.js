@@ -4,8 +4,10 @@ window.config = {
   name: 'config/default.js',
   routerBasename: null,
   // whiteLabeling: {},
-  extensions: [],
-  modes: [],
+  extensions: ['@ohif/extension-default',
+    '@ohif/extension-cornerstone',],
+  modes: ['@ohif/mode-longitudinal',
+    '@ohif/mode-basic'],
   customizationService: {},
   showStudyList: true,
   // some windows systems have issues with more than 3 web workers
