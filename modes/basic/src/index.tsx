@@ -229,7 +229,7 @@ export const toolbarSections = {
     'windowLevelMenuEmbedded',
     'voiManualControlMenu',
     'Colorbar',
-    'mipButton',
+    'mip',
     'opacityMenu',
     'thresholdMenu',
   ],

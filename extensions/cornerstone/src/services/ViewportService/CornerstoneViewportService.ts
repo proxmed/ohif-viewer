@@ -508,7 +508,7 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
   }
 
   public setBlendMode(viewportId: string, blendMode: string, volumeId?: string): void {
-    console.log('CornerstoneViewportService: setBlendMode', { viewportId, blendMode, volumeId });
+
     const viewport = this.getCornerstoneViewport(viewportId);
 
     if (!(viewport instanceof BaseVolumeViewport)) {
@@ -1050,7 +1050,7 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
       displaySetInstanceUIDs.push(displaySetInstanceUID);
 
       if (!volume) {
-        console.log('Volume display set not found');
+
         continue;
       }
 
@@ -1100,8 +1100,8 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
   public async setVolumesForViewport(
     viewport,
     volumeInputArray,
-    presentations,
-    viewportInfo: ViewportInfo
+    presentations?,
+    viewportInfo?: ViewportInfo
   ) {
     const { displaySetService, viewportGridService } = this.servicesManager.services;
 
@@ -1118,9 +1118,6 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
     const displaySet = displaySetService.getDisplaySetByUID(displaySetUIDs[0]);
     const displaySetModality = displaySet?.Modality;
 
-    // seems like a hack but we need the actor to be ready first before
-    // we set the properties
-    const timeoutViewportCallback = (callback: () => void) => setTimeout(callback, 0);
 
     // filter overlay display sets (e.g. segmentation) since they will get handled below via the segmentation service
     const filteredVolumeInputArray = volumeInputArray
@@ -1181,11 +1178,9 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
           }
 
           if (viewport.type === csEnums.ViewportType.VOLUME_3D) {
-            timeoutViewportCallback(() => {
-              viewportGridService.setDisplaySetsForViewport({
-                viewportId: viewport.id,
-                displaySetInstanceUIDs: [backgroundDisplaySet[0].displaySetInstanceUID],
-              });
+            viewportGridService.setDisplaySetsForViewport({
+              viewportId: viewport.id,
+              displaySetInstanceUIDs: [backgroundDisplaySet[0].displaySetInstanceUID],
             });
           }
         }
@@ -1204,10 +1199,8 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
     viewport.render();
 
     volumesProperties.forEach(({ properties, volumeId }) => {
-      timeoutViewportCallback(() => {
-        viewport.setProperties(properties, volumeId);
-        viewport.render();
-      });
+      viewport.setProperties(properties, volumeId);
+      viewport.render();
     });
 
     this.setPresentations(viewport.id, presentations);
@@ -1282,7 +1275,10 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
       type: representationType,
       config: {
         blendMode:
-          (viewport as any).getBlendMode?.() === 1 ? BlendModes.LABELMAP_EDGE_PROJECTION_BLEND : undefined,
+          viewport instanceof VolumeViewport &&
+            viewport.getBlendMode() === csEnums.BlendModes.MAXIMUM_INTENSITY_BLEND
+            ? csEnums.BlendModes.LABELMAP_EDGE_PROJECTION_BLEND
+            : undefined,
       },
     });
 
@@ -1558,8 +1554,9 @@ class CornerstoneViewportService extends PubSubService implements IViewportServi
           type: representationType,
           config: {
             blendMode:
-              (viewport as any).getBlendMode?.() === 1
-                ? BlendModes.LABELMAP_EDGE_PROJECTION_BLEND
+              viewport instanceof VolumeViewport &&
+                viewport.getBlendMode() === csEnums.BlendModes.MAXIMUM_INTENSITY_BLEND
+                ? csEnums.BlendModes.LABELMAP_EDGE_PROJECTION_BLEND
                 : undefined,
           },
         });

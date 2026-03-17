@@ -14,26 +14,32 @@ const DEFAULT_SLAB = 20;
 const MIN_SLAB = 1;
 const MAX_SLAB = 200;
 
-function getActiveVolumeViewport(cornerstoneViewportService, viewportId?: string) {
+interface MIPButtonProps {
+    viewportId?: string;
+    disabled?: boolean;
+    [key: string]: any;
+}
+
+function getActiveVolumeViewport(cornerstoneViewportService: any, viewportId?: string): BaseVolumeViewport | null {
     if (!viewportId) return null;
     const vp = cornerstoneViewportService.getCornerstoneViewport(viewportId);
     if (!vp || !(vp instanceof BaseVolumeViewport)) return null;
-    return vp;
+    return vp as BaseVolumeViewport;
 }
 
-export function MIPButton({ viewportId: propViewportId, disabled, ...rest }) {
+export function MIPButton({ viewportId: propViewportId, disabled, ...rest }: MIPButtonProps) {
     const { servicesManager } = useSystem();
     const { viewportGridService, cornerstoneViewportService } = servicesManager.services;
 
     // Track active viewport
-    const [activeViewportId, setActiveViewportId] = useState(
+    const [activeViewportId, setActiveViewportId] = useState<string>(
         () => propViewportId || viewportGridService.getActiveViewportId()
     );
 
     useEffect(() => {
         const { unsubscribe } = viewportGridService.subscribe(
             viewportGridService.EVENTS.ACTIVE_VIEWPORT_ID_CHANGED,
-            ({ viewportId }) => setActiveViewportId(viewportId)
+            ({ viewportId }: { viewportId: string }) => setActiveViewportId(viewportId)
         );
         return () => unsubscribe();
     }, [viewportGridService]);
@@ -41,7 +47,6 @@ export function MIPButton({ viewportId: propViewportId, disabled, ...rest }) {
     const viewportId = propViewportId || activeViewportId;
 
     // Own the popover open/close state — do NOT rely on toolbar's isOpen prop.
-    // This prevents the mismatch where isOpen=true but isMIPActive=false on second enable.
     const [popoverOpen, setPopoverOpen] = useState(false);
     const [isMIPActive, setIsMIPActive] = useState(false);
     const [slabThickness, setSlabThicknessState] = useState(DEFAULT_SLAB);
@@ -71,7 +76,7 @@ export function MIPButton({ viewportId: propViewportId, disabled, ...rest }) {
 
     // ── Toggle MIP ────────────────────────────────────────────────────────────
     const handleToggle = useCallback(() => {
-        const vp = getActiveVolumeViewport(cornerstoneViewportService, viewportId) as any;
+        const vp = getActiveVolumeViewport(cornerstoneViewportService, viewportId);
         if (!vp) return;
 
         if (isMIPActive) {
@@ -96,7 +101,7 @@ export function MIPButton({ viewportId: propViewportId, disabled, ...rest }) {
             const value = Number(e.target.value);
             setSlabThicknessState(value);
             if (!isMIPActive) return;
-            const vp = getActiveVolumeViewport(cornerstoneViewportService, viewportId) as any;
+            const vp = getActiveVolumeViewport(cornerstoneViewportService, viewportId);
             if (!vp) return;
             vp.setSlabThickness(value);
             vp.render();
@@ -106,7 +111,7 @@ export function MIPButton({ viewportId: propViewportId, disabled, ...rest }) {
 
     const handleReset = useCallback(() => {
         setSlabThicknessState(DEFAULT_SLAB);
-        const vp = getActiveVolumeViewport(cornerstoneViewportService, viewportId) as any;
+        const vp = getActiveVolumeViewport(cornerstoneViewportService, viewportId);
         if (vp) {
             vp.setSlabThickness(DEFAULT_SLAB);
             vp.render();

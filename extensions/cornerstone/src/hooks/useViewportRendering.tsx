@@ -425,8 +425,7 @@ export function useViewportRendering(
       cornerstoneViewportService.EVENTS.VIEWPORT_DATA_CHANGED,
       ({ viewportId: changedViewportId }) => {
         if (changedViewportId === viewportId) {
-          // Delay so the new volume viewport is fully set up before we inspect it
-          setTimeout(updateRenderingProps, 100);
+          updateRenderingProps();
         }
       }
     );

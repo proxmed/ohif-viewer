@@ -37,11 +37,6 @@ export default function getToolbarModule({ servicesManager, extensionManager }: 
       defaultComponent: AdvancedRenderingControls,
     },
     {
-      name: 'ohif.mipButton',
-      defaultComponent: MIPButton,
-    },
-    {
-      // Alias kept for backwards-compat: segmentation/tmtv/preclinical-4d modes reference this name
       name: 'ohif.mipControl',
       defaultComponent: MIPButton,
     },
