@@ -58,6 +58,27 @@ if [ -n "$CLIENT_ID" ] || [ -n "$HEALTHCARE_API_ENDPOINT" ]
 	  cp /usr/share/nginx/html/google.js /usr/share/nginx/html/app-config.js
 fi
 
+if [ -n "$AHI_ENDPOINT" ] || [ -n "$COGNITO_AUTHORITY" ] || [ -n "$COGNITO_CLIENT_ID" ]
+  then
+    echo "AWS HealthImaging environment variables detected. Updating config..."
+    CONFIG_PATH="/usr/share/nginx/html${PUBLIC_URL}app-config.js"
+
+    if [ -n "$AHI_ENDPOINT" ]; then
+      echo "Substituting \$AHI_ENDPOINT"
+      sed -i "s|__AHI_ENDPOINT__|$AHI_ENDPOINT|g" "$CONFIG_PATH"
+    fi
+
+    if [ -n "$COGNITO_AUTHORITY" ]; then
+      echo "Substituting \$COGNITO_AUTHORITY"
+      sed -i "s|__COGNITO_AUTHORITY__|$COGNITO_AUTHORITY|g" "$CONFIG_PATH"
+    fi
+
+    if [ -n "$COGNITO_CLIENT_ID" ]; then
+      echo "Substituting \$COGNITO_CLIENT_ID"
+      sed -i "s|__COGNITO_CLIENT_ID__|$COGNITO_CLIENT_ID|g" "$CONFIG_PATH"
+    fi
+fi
+
 echo "Starting Nginx to serve the OHIF Viewer on ${PUBLIC_URL}"
 
 exec "$@"

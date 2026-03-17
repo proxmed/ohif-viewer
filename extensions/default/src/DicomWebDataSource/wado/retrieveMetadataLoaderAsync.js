@@ -106,6 +106,9 @@ export default class RetrieveMetadataLoaderAsync extends RetrieveMetadataLoader 
       },
     };
 
+    // AHI does not accept 'application/dicom+json'; remove the default Accept header
+    delete client.headers.Accept;
+
     if (seriesInstanceUID) {
       options.queryParams.SeriesInstanceUID = seriesInstanceUID;
       preLoaders.push(client.searchForSeries.bind(client, options));
