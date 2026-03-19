@@ -25,6 +25,11 @@ function ViewportOrientationMenu({
   const { servicesManager, commandsManager } = useSystem();
   const { cornerstoneViewportService, toolbarService } = servicesManager.services;
   const viewportInfo = cornerstoneViewportService.getViewportInfo(viewportId);
+
+  if (!viewportInfo) {
+    return null;
+  }
+
   const viewportOrientation = viewportInfo.getOrientation();
 
   const [gridState] = useViewportGrid();
@@ -141,7 +146,7 @@ function ViewportOrientationMenu({
               variant="ghost"
               size="icon"
               disabled={disabled}
-              onClick={() => {}}
+              onClick={() => { }}
             >
               {Icon}
             </Button>
@@ -203,7 +208,7 @@ function ViewportOrientationMenu({
           <div className="flex-1 text-left">Acquisition</div>
         </Button>
         {/* Divider */}
-        <div className="border-input mx-1 my-2 border-t" />
+        <div className="mx-1 my-2 border-t border-white/20" />
         <Button
           variant="ghost"
           className="flex h-7 w-full flex-shrink-0 items-center justify-start self-stretch px-1 py-0"

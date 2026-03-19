@@ -227,6 +227,10 @@ export default async function init({
 
         const ohifViewport = cornerstoneViewportService.getViewportInfo(viewportId);
 
+        if (!ohifViewport) {
+          continue;
+        }
+
         const { presentationIds } = ohifViewport.getViewportOptions();
 
         const presentations = {
@@ -236,7 +240,12 @@ export default async function init({
             segmentationPresentationStore[presentationIds?.segmentationPresentationId],
         };
 
-        cornerstoneViewportService.setVolumesForViewport(viewport, volumeInputArray, presentations);
+        cornerstoneViewportService.setVolumesForViewport(
+          viewport,
+          volumeInputArray,
+          presentations,
+          ohifViewport
+        );
       }
     }
   );

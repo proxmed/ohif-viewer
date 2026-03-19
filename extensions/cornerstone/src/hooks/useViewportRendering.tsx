@@ -15,6 +15,7 @@ import { ColorbarPositionType, ColorbarOptions, ColorbarProperties } from '../ty
 import { VolumeRenderingConfig } from '../types/VolumeRenderingConfig';
 import { VolumeLightingParams } from '../types';
 import { ButtonLocation } from '@ohif/core/src/services/ToolBarService/ToolbarService';
+import getCornerstoneBlendMode from '../utils/getCornerstoneBlendMode';
 
 interface ViewportRenderingOptions {
   location?: number;
@@ -33,6 +34,14 @@ interface WindowLevelHook {
   viewportDisplaySets: AppTypes.DisplaySet[] | undefined;
   voiRange: { lower: number; upper: number } | undefined;
   windowLevel: { windowWidth: number; windowCenter: number } | undefined;
+
+  // Blend mode functions
+  blendMode: Enums.BlendModes | undefined;
+  setBlendMode: (blendMode: string) => void;
+
+  // Slab thickness functions
+  slabThickness: number | undefined;
+  setSlabThickness: (slabThickness: number) => void;
 
   // Window level functions
   setWindowLevel: (preset: {
@@ -137,6 +146,8 @@ export function useViewportRendering(
   const [opacityLinear, setOpacityLinearState] = useState<number | undefined>();
   const [threshold, setThresholdState] = useState<number | undefined>();
   const [pixelValueRange, setPixelValueRange] = useState<PixelValueRange>({ min: 0, max: 255 });
+  const [blendMode, setBlendModeState] = useState<Enums.BlendModes | undefined>();
+  const [slabThickness, setSlabThicknessState] = useState<number | undefined>();
 
   const { viewportDisplaySets } = useViewportDisplaySets(viewportId);
   const { displaySetService } = servicesManager.services;
@@ -215,7 +226,7 @@ export function useViewportRendering(
 
     const imageDataVtk = imageData.imageData;
 
-    const { voxelManager } = imageDataVtk.get('voxelManager');
+    const { voxelManager } = imageDataVtk.get('voxelManager') as any;
 
     const range = voxelManager.getRange();
 
@@ -281,6 +292,10 @@ export function useViewportRendering(
             // Get threshold from colormap if available
             if (properties?.colormap && properties.colormap.threshold !== undefined) {
               setThresholdState(properties.colormap.threshold);
+            }
+
+            if (properties?.blendMode !== undefined) {
+              setBlendModeState(properties.blendMode);
             }
           }
         }
@@ -362,12 +377,64 @@ export function useViewportRendering(
       }
     };
 
+    const updateRenderingProps = () => {
+      // Always get FRESH viewport — closed-over reference is stale after stack→volume transition
+      const currentViewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
+      if (!currentViewport) {
+        return;
+      }
+
+      if (currentViewport instanceof BaseVolumeViewport) {
+        const volumeIds = currentViewport.getAllVolumeIds();
+        const volumeId = volumeIds.find(id => id.includes(activeDisplaySetInstanceUID))
+          || volumeIds[0];  // fallback to first volume if display set ID doesn't match
+
+        if (volumeId) {
+          const properties = currentViewport.getProperties(volumeId);
+          if ((properties as any)?.blendMode !== undefined) {
+            setBlendModeState((properties as any).blendMode);
+          }
+          const thickness = currentViewport.getSlabThickness?.();
+          if (thickness !== undefined) {
+            setSlabThicknessState(thickness);
+          }
+        } else {
+          // Volume exists but no matching volumeId — still read blend mode from viewport
+          const blendModeValue = (currentViewport as any).getProperties?.()?.blendMode;
+          if (blendModeValue !== undefined) {
+            setBlendModeState(blendModeValue);
+          }
+          const thickness = currentViewport.getSlabThickness?.();
+          if (thickness !== undefined) {
+            setSlabThicknessState(thickness);
+          }
+        }
+      } else {
+        // Stack viewport — blend mode is composite
+        setBlendModeState(undefined);
+        setSlabThicknessState(undefined);
+      }
+    };
+
     element.addEventListener(Enums.Events.VOI_MODIFIED, updateVOI);
     element.addEventListener(Enums.Events.COLORMAP_MODIFIED, updateColormap);
+    element.addEventListener(Enums.Events.IMAGE_RENDERED, updateRenderingProps);
+
+    // Also listen for viewport data changes (fires after stack→volume transition)
+    const { unsubscribe: unsubscribeViewportData } = cornerstoneViewportService.subscribe(
+      cornerstoneViewportService.EVENTS.VIEWPORT_DATA_CHANGED,
+      ({ viewportId: changedViewportId }) => {
+        if (changedViewportId === viewportId) {
+          updateRenderingProps();
+        }
+      }
+    );
 
     return () => {
       element.removeEventListener(Enums.Events.VOI_MODIFIED, updateVOI);
       element.removeEventListener(Enums.Events.COLORMAP_MODIFIED, updateColormap);
+      element.removeEventListener(Enums.Events.IMAGE_RENDERED, updateRenderingProps);
+      unsubscribeViewportData();
     };
   }, [viewportId, activeDisplaySetInstanceUID, cornerstoneViewportService, opacityToLinear]);
 
@@ -793,6 +860,60 @@ export function useViewportRendering(
     [commandsManager, viewportId]
   );
 
+  const setBlendMode = useCallback(
+    (blendModeValue: string) => {
+      if (!viewportId) {
+        return;
+      }
+
+      try {
+        const csBlendMode = getCornerstoneBlendMode(blendModeValue);
+        setBlendModeState(csBlendMode);
+      } catch (e) {
+        // unsupported blend mode string — ignore
+      }
+
+      // Note: displaySetInstanceUID is optional for blend mode; the command resolves it internally
+      let displaySetInstanceUID: string | undefined;
+      try {
+        displaySetInstanceUID = validateActiveDisplaySet();
+      } catch {
+        // no active display set — continue without it (volume viewports don't need it)
+      }
+
+      commandsManager.run({
+        commandName: 'setViewportBlendMode',
+        commandOptions: {
+          viewportId,
+          blendMode: blendModeValue,
+          displaySetInstanceUID,
+        },
+        context: 'CORNERSTONE',
+      });
+    },
+    [commandsManager, viewportId, validateActiveDisplaySet]
+  );
+
+  const setSlabThickness = useCallback(
+    (thickness: number) => {
+      if (!viewportId) {
+        return;
+      }
+
+      setSlabThicknessState(thickness);
+
+      commandsManager.run({
+        commandName: 'setViewportSlabThickness',
+        commandOptions: {
+          viewportId,
+          slabThickness: thickness,
+        },
+        context: 'CORNERSTONE',
+      });
+    },
+    [commandsManager, viewportId]
+  );
+
   return {
     is3DVolume,
     isViewportBackgroundLight,
@@ -827,6 +948,14 @@ export function useViewportRendering(
     setVolumeRenderingQuality,
     setVolumeLighting,
     setVolumeShading,
+
+    // Blend mode functions
+    blendMode,
+    setBlendMode,
+
+    // Slab thickness functions
+    slabThickness,
+    setSlabThickness,
 
     // Display sets
     viewportDisplaySets,

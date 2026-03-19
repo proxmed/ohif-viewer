@@ -97,7 +97,7 @@ export const getWindowLevelsData = async (
   viewportInfo: any,
   getVolumeOpacity: (viewport: any, volumeId: string) => number | undefined
 ) => {
-  if (!viewport) {
+  if (!viewport || !viewportInfo) {
     return [];
   }
 
@@ -106,9 +106,9 @@ export const getWindowLevelsData = async (
   const { voiRange } = viewportProperties || {};
   const viewportVoi = voiRange
     ? {
-        windowWidth: voiRange.upper - voiRange.lower,
-        windowCenter: voiRange.lower + (voiRange.upper - voiRange.lower) / 2,
-      }
+      windowWidth: voiRange.upper - voiRange.lower,
+      windowCenter: voiRange.lower + (voiRange.upper - voiRange.lower) / 2,
+    }
     : undefined;
 
   const windowLevels = await Promise.all(

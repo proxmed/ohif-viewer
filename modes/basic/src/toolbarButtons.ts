@@ -159,6 +159,14 @@ const toolbarButtons: Button[] = [
     },
   },
   {
+    id: 'mip',
+    uiType: 'ohif.mipControl',
+    props: {
+      label: 'MIP',
+      tooltip: 'MIP',
+    },
+  },
+  {
     id: 'opacityMenu',
     uiType: 'ohif.opacityMenu',
     props: {
