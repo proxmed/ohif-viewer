@@ -14,10 +14,10 @@ window.config = {
     configuration: {
       friendlyName: "AWS HealthImaging",
       name: "aws-healthimaging",
-      wadoUriRoot: "__AHI_ENDPOINT__",
-      qidoRoot: "__AHI_ENDPOINT__",
-      wadoRoot: "__AHI_ENDPOINT__",
-      stowRoot: "__AHI_ENDPOINT__",
+        wadoUriRoot: "https://dicom-medical-imaging.ap-southeast-2.amazonaws.com/datastore/10d42ab92271467bb5144861255a04b2",
+        qidoRoot: "https://dicom-medical-imaging.ap-southeast-2.amazonaws.com/datastore/10d42ab92271467bb5144861255a04b2",
+        wadoRoot: "https://dicom-medical-imaging.ap-southeast-2.amazonaws.com/datastore/10d42ab92271467bb5144861255a04b2",
+        stowRoot: "https://dicom-medical-imaging.ap-southeast-2.amazonaws.com/datastore/10d42ab92271467bb5144861255a04b2",
       acceptHeader: ["*/*"],
       qidoSupportsIncludeField: false,
       supportsReject: false,
@@ -36,8 +36,8 @@ window.config = {
     }
   }],
   oidc: [{
-    authority: "__COGNITO_AUTHORITY__",
-    client_id: "__COGNITO_CLIENT_ID__",
+      authority: "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_w8VDcOq68",
+      client_id: "7jii73ssbh0tu7j1qsc45lqogl",
     redirect_uri: "/callback",
     response_type: "code",
     scope: "openid profile email",

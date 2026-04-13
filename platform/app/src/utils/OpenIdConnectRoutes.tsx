@@ -160,6 +160,14 @@ function OpenIdConnectRoutes({ oidc, routerBasename, userAuthenticationService }
     };
   }, []);
 
+  useEffect(() => {
+    userManager.getUser().then(user => {
+      if (user && !user.expired) {
+        userAuthenticationService.setUser(user);
+      }
+    });
+  }, []);
+
   const oidcAuthority = oidc[0].authority;
 
   const location = useLocation();

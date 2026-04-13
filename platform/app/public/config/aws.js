@@ -13,6 +13,21 @@ window.config = {
   strictZSpacingForVolumeViewport: true,
   // filterQueryParam: false,
   defaultDataSourceName: 'dicomweb',
+
+    oidc: [
+    {
+      authority: 'https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_w8VDcOq68',
+      client_id: '7jii73ssbh0tu7j1qsc45lqogl',
+      redirect_uri: '/callback',
+      response_type: 'code',
+      scope: 'openid profile email',
+      post_logout_redirect_uri: '/',
+      silent_redirect_uri: '/silent-refresh.html',
+      automaticSilentRenew: true,
+      revokeAccessTokenOnSignout: true,
+    },
+  ],
+
   dataSources: [
     {
       namespace: '@ohif/extension-default.dataSourcesModule.dicomweb',
