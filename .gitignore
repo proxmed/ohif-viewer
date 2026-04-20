@@ -66,3 +66,7 @@ tests/playwright-report/
 
 # Generated AHI config with secrets
 **/config/ahi.local.js
+.gstack/
+scripts/ahi-stale-tag-diagnostic.sh
+scripts/ahi-patch-instance-tags.sh
+.env.ahi
