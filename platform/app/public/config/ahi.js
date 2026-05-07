@@ -32,10 +32,11 @@ window.config = {
         supportsWildcard: false,
         staticWado: false,
         singlepart: 'instance,bulkdata,video,pdf',
-        // Authorization header is injected dynamically at request time by
-        // userAuthenticationService.getAuthorizationHeader() — no static
-        // placeholder needed here.
-        requestOptions: {},
+        requestOptions: {
+          headers: {
+            Authorization: 'Bearer {{ACCESS_TOKEN}}',
+          },
+        },
       },
     },
   ],
@@ -46,7 +47,7 @@ window.config = {
       redirect_uri: '/callback',
       response_type: 'code',
       scope: 'openid profile email',
-      post_logout_redirect_uri: '/login',
+      post_logout_redirect_uri: '/logout',
       automaticSilentRenew: true,
       revokeAccessTokenOnSignout: false,
     },
