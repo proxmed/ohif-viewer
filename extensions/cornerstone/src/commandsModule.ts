@@ -2589,12 +2589,6 @@ function commandsModule({
     setViewportWindowLevel: {
       commandFn: actions.setViewportWindowLevel,
     },
-    setViewportBlendMode: {
-      commandFn: actions.setViewportBlendMode,
-    },
-    setViewportSlabThickness: {
-      commandFn: actions.setViewportSlabThickness,
-    },
     setCustomWindowLevel: {
       commandFn: actions.setCustomWindowLevel,
     },
