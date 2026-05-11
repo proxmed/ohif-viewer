@@ -3,6 +3,77 @@
 All notable changes to this project will be documented in this file.
 See [Conventional Commits](https://conventionalcommits.org) for commit guidelines.
 
+# [3.13.0-beta.71](https://github.com/OHIF/Viewers/compare/v3.13.0-beta.70...v3.13.0-beta.71) (2026-05-07)
+
+
+### Bug Fixes
+
+* remove waitForVolumeLoad from main toolbar page object ([#6004](https://github.com/OHIF/Viewers/issues/6004)) ([37e19f7](https://github.com/OHIF/Viewers/commit/37e19f734a675a95cedc8a8acc3980816a489574))
+
+
+
+
+
+# [3.13.0-beta.70](https://github.com/OHIF/Viewers/compare/v3.13.0-beta.69...v3.13.0-beta.70) (2026-05-07)
+
+**Note:** Version bump only for package ohif-monorepo-root
+
+
+
+
+
+# [3.13.0-beta.69](https://github.com/OHIF/Viewers/compare/v3.13.0-beta.68...v3.13.0-beta.69) (2026-05-06)
+
+
+### Bug Fixes
+
+* **security:** Patch axios security vulnerabilities. ([#5998](https://github.com/OHIF/Viewers/issues/5998)) ([5e624f1](https://github.com/OHIF/Viewers/commit/5e624f13870cdb63300b82285b46d4b21b9d47c3))
+
+
+
+
+
+# [3.13.0-beta.68](https://github.com/OHIF/Viewers/compare/v3.13.0-beta.67...v3.13.0-beta.68) (2026-05-05)
+
+
+### Bug Fixes
+
+* **ToolGroupService:** Centralize tool binding persistence and provide API to add and remove persisted bindings. ([#5989](https://github.com/OHIF/Viewers/issues/5989)) ([979d619](https://github.com/OHIF/Viewers/commit/979d619f7ccb426beb75d59721b01c98175d5241))
+
+
+
+
+
+# [3.13.0-beta.67](https://github.com/OHIF/Viewers/compare/v3.13.0-beta.66...v3.13.0-beta.67) (2026-04-30)
+
+
+### Features
+
+* **ui-next:** Adds toggle state for ToolButton and Crosshair example ([#5914](https://github.com/OHIF/Viewers/issues/5914)) ([691e267](https://github.com/OHIF/Viewers/commit/691e26731f4f3b3957fe81fc051b09c972696cf6))
+
+
+
+
+
+# [3.13.0-beta.66](https://github.com/OHIF/Viewers/compare/v3.13.0-beta.65...v3.13.0-beta.66) (2026-04-29)
+
+
+### Bug Fixes
+
+* **config url:** Hardening fetch options. ([#5985](https://github.com/OHIF/Viewers/issues/5985)) ([468e573](https://github.com/OHIF/Viewers/commit/468e5734a9ab02516430cc0dab5d7f2106dea950))
+
+
+
+
+
+# [3.13.0-beta.65](https://github.com/OHIF/Viewers/compare/v3.13.0-beta.64...v3.13.0-beta.65) (2026-04-29)
+
+**Note:** Version bump only for package ohif-monorepo-root
+
+
+
+
+
 # [3.13.0-beta.64](https://github.com/OHIF/Viewers/compare/v3.13.0-beta.63...v3.13.0-beta.64) (2026-04-27)
 
 
