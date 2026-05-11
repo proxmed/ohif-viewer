@@ -6,6 +6,7 @@ import {
   Enums as CoreEnums,
   Types as CoreTypes,
   BaseVolumeViewport,
+  VolumeViewport3D,
   getRenderingEngines,
 } from '@cornerstonejs/core';
 import {
@@ -55,6 +56,7 @@ import { EasingFunctionEnum } from './utils/transitions';
 import { createSegmentationForViewport } from './utils/createSegmentationForViewport';
 import { utilities as segmentationUtilities } from '@cornerstonejs/tools/segmentation';
 import i18n from '@ohif/i18n';
+import getCornerstoneBlendMode from './utils/getCornerstoneBlendMode';
 
 const { add, intersect, subtract, copy } = cstUtils.contourSegmentation;
 
@@ -135,17 +137,17 @@ function commandsModule({
     displaySetService,
   } = servicesManager.services as AppTypes.Services;
 
-  function _getActiveViewportEnabledElement() {
+  const _getActiveViewportEnabledElement = () => {
     return getActiveViewportEnabledElement(viewportGridService);
-  }
+  };
 
-  function _getViewportEnabledElement(viewportId: string) {
+  const _getViewportEnabledElement = (viewportId: string) => {
     return getViewportEnabledElement(viewportId);
-  }
+  };
 
   function _getActiveViewportToolGroupId() {
     const viewport = _getActiveViewportEnabledElement();
-    return toolGroupService.getToolGroupForViewport(viewport.id);
+    return toolGroupService.getToolGroupForViewport(viewport?.viewportId);
   }
 
   function _getActiveSegmentationInfo() {
@@ -231,7 +233,7 @@ function commandsModule({
           const { center, extent } = getCenterExtent(measurement);
           const position = vec3.sub(vec3.create(), cameraPosition, cameraFocalPoint);
           vec3.add(position, position, center);
-          viewport.setCamera({ focalPoint: center, position: position as any });
+          viewport.setCamera({ focalPoint: center, position: position as unknown as CoreTypes.Point3 });
           /** Zoom out if the measurement is too large */
           const measurementSize = vec3.dist(extent.min, extent.max);
           if (measurementSize > camera.parallelScale) {
@@ -389,7 +391,7 @@ function commandsModule({
         return results;
       }
     },
-    runSegmentBidirectional: async ({ segmentationId, segmentIndex } = {}) => {
+    runSegmentBidirectional: async ({ segmentationId, segmentIndex }: any = {}) => {
       // Get active segmentation if not specified
       const targetSegmentation =
         segmentationId && segmentIndex
@@ -578,13 +580,17 @@ function commandsModule({
       });
 
       const isAnnotation = toolName => {
+        function _getViewportId(enabledElement: any) {
+          return enabledElement?.viewportId || enabledElement?.id;
+        }
         const enabledElement = getEnabledElement(element);
 
         if (!enabledElement) {
           return;
         }
 
-        const { renderingEngineId, viewportId } = enabledElement;
+        const renderingEngineId = enabledElement.renderingEngineId;
+        const viewportId = _getViewportId(enabledElement);
         const toolGroup = ToolGroupManager.getToolGroupForViewport(viewportId, renderingEngineId);
 
         const toolInstance = toolGroup.getToolInstance(toolName);
@@ -603,11 +609,10 @@ function commandsModule({
      */
     _handleMeasurementLabelDialog: async uid => {
       const labelConfig = customizationService.getCustomization('measurementLabels');
-      const renderContent = customizationService.getCustomization('ui.labellingComponent');
+      const renderContent = customizationService.getCustomization('ui.labellingComponent') as any;
       const measurement = measurementService.getMeasurement(uid);
 
       if (!measurement) {
-        console.debug('No measurement found for label editing');
         return;
       }
 
@@ -630,6 +635,7 @@ function commandsModule({
         uiDialogService,
         labelConfig,
         renderContent,
+        element: _getActiveViewportEnabledElement()?.viewport?.element,
       });
 
       if (val !== undefined && val !== null) {
@@ -777,8 +783,17 @@ function commandsModule({
       const segmentation = segmentationService.getSegmentation(segmentationId);
 
       const { representationData } = segmentation;
-      const { Labelmap } = representationData;
-      const { referencedImageIds } = Labelmap;
+      const Labelmap = representationData[SegmentationRepresentations.Labelmap];
+      if (!Labelmap) {
+        return;
+      }
+
+      const referencedImageIds =
+        'referencedImageIds' in Labelmap ? Labelmap.referencedImageIds : [];
+
+      if (!referencedImageIds?.length) {
+        return;
+      }
 
       const firstImageId = referencedImageIds[0];
 
@@ -798,7 +813,7 @@ function commandsModule({
 
       const additionalInfo = {
         reference: {
-          SeriesNumber,
+          SeriesNumber: `${SeriesNumber}`,
           SeriesInstanceUID,
           StudyInstanceUID,
           SeriesDate,
@@ -824,7 +839,7 @@ function commandsModule({
     },
     arrowTextCallback: async ({ callback, data }) => {
       const labelConfig = customizationService.getCustomization('measurementLabels');
-      const renderContent = customizationService.getCustomization('ui.labellingComponent');
+      const renderContent = customizationService.getCustomization('ui.labellingComponent') as any;
 
       if (!labelConfig) {
         const label = await callInputDialog({
@@ -839,9 +854,11 @@ function commandsModule({
       }
 
       const value = await callInputDialogAutoComplete({
+        measurement: data,
         uiDialogService,
         labelConfig,
         renderContent,
+        element: _getActiveViewportEnabledElement()?.viewport?.element,
       });
       callback?.(value);
     },
@@ -850,7 +867,9 @@ function commandsModule({
       const { viewports } = viewportGridService.getState();
       const { isCineEnabled } = cineService.getState();
       cineService.setIsCineEnabled(!isCineEnabled);
-      viewports.forEach((_, index) => cineService.setCine({ id: index, isPlaying: false }));
+      viewports.forEach((_, id) =>
+        cineService.setCine({ id, isPlaying: !isCineEnabled, frameRate: 24 })
+      );
     },
 
     setViewportWindowLevel({
@@ -888,7 +907,7 @@ function commandsModule({
           },
           volumeId
         );
-      } else {
+      } else if (viewport instanceof StackViewport || viewport instanceof BaseVolumeViewport) {
         viewport.setProperties({
           voiRange: {
             upper,
@@ -898,7 +917,12 @@ function commandsModule({
       }
       viewport.render();
     },
-    toggleViewportColorbar: ({ viewportId, displaySetInstanceUIDs, options = {} }) => {
+
+    toggleViewportColorbar: ({ viewportId, displaySetInstanceUIDs, options = {} }: {
+      viewportId: string;
+      displaySetInstanceUIDs: string[];
+      options?: any;
+    }) => {
       const hasColorbar = colorbarService.hasColorbar(viewportId);
       if (hasColorbar) {
         colorbarService.removeColorbar(viewportId);
@@ -1061,7 +1085,7 @@ function commandsModule({
         return;
       }
 
-      if (!toolGroup?.hasTool(toolName)) {
+      if (!(toolGroup as any)?.hasTool(toolName)) {
         return;
       }
 
@@ -1069,7 +1093,7 @@ function commandsModule({
 
       if (activeToolName) {
         const activeToolOptions = toolGroup.getToolConfiguration(activeToolName);
-        activeToolOptions?.disableOnPassive
+        (activeToolOptions as any)?.disableOnPassive
           ? toolGroup.setToolDisabled(activeToolName)
           : toolGroup.setToolPassive(activeToolName);
       }
@@ -1263,7 +1287,7 @@ function commandsModule({
       const options = { imageIndex: jumpIndex };
       csUtils.jumpToSlice(viewport.element, options);
     },
-    scroll: (options: ToolTypes.ScrollOptions) => {
+    scroll: (options: any) => {
       const enabledElement = _getActiveViewportEnabledElement();
       // Allow either or direction for consistency in scroll implementation
       options.delta ??= options.direction || 1;
@@ -1298,13 +1322,13 @@ function commandsModule({
           displaySet => displaySet.displaySetInstanceUID === displaySetInstanceUID
         );
         // If a matching display set is found, update the opacity with its value
-        hpOpacity = matchingDisplaySet?.displaySetOptions?.options?.colormap?.opacity;
+        hpOpacity = (matchingDisplaySet as any)?.displaySetOptions?.options?.colormap?.opacity;
       }
 
       // HP takes priority over the default opacity
       colormap = { ...colormap, opacity: hpOpacity || opacity };
 
-      if (viewport instanceof StackViewport) {
+      if (viewport instanceof StackViewport || viewport instanceof BaseVolumeViewport) {
         viewport.setProperties({ colormap });
       }
 
@@ -1374,17 +1398,17 @@ function commandsModule({
 
       const toolGroup = toolGroupService.getToolGroupForViewport(viewportId);
 
-      if (!toolGroup?.hasTool(toolName)) {
+      if (!(toolGroup as any)?.hasTool(toolName)) {
         return;
       }
 
       const prevConfig = toolGroup?.getToolConfiguration(toolName);
-      toolGroup?.setToolConfiguration(
+      (toolGroup as any)?.setToolConfiguration(
         toolName,
         {
           ...prevConfig,
           sourceViewportId: viewportId,
-        },
+        } as any,
         true // overwrite
       );
 
@@ -1414,10 +1438,14 @@ function commandsModule({
         numPanesWithData++;
 
         if (numPanesWithData === numPanes) {
-          commandsManager.run(...command);
+          if (Array.isArray(command)) {
+            (commandsManager as any).run(...command);
+          } else {
+            (commandsManager as any).run(command);
+          }
 
           // Unsubscribe from the event
-          unsubscribe(EVENT);
+          (unsubscribe as any)(EVENT as any);
         }
       });
     },
@@ -1427,9 +1455,11 @@ function commandsModule({
       if (!viewport) {
         return;
       }
-      viewport.setProperties({
-        preset,
-      });
+      if (viewport instanceof StackViewport || viewport instanceof BaseVolumeViewport) {
+        viewport.setProperties({
+          preset,
+        });
+      }
       viewport.render();
     },
 
@@ -1453,8 +1483,8 @@ function commandsModule({
       let sampleDistance = spacing.reduce((a, b) => a + b) / 3.0;
       sampleDistance /= volumeQuality > 1 ? 0.5 * volumeQuality ** 2 : 1.0;
       const samplesPerRay = spatialDiagonal / sampleDistance + 1;
-      mapper.setMaximumSamplesPerRay(samplesPerRay);
-      mapper.setSampleDistance(sampleDistance);
+      (mapper as any).setMaximumSamplesPerRay(samplesPerRay);
+      (mapper as any).setSampleDistance(sampleDistance);
       viewport.render();
     },
 
@@ -1466,7 +1496,7 @@ function commandsModule({
     shiftVolumeOpacityPoints: ({ viewportId, shift }) => {
       const viewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
       const { actor } = viewport.getActors()[0];
-      const ofun = actor.getProperty().getScalarOpacity(0);
+      const ofun = (actor.getProperty() as any).getScalarOpacity(0);
 
       const opacityPointValues = []; // Array to hold values
       // Gather Existing Values
@@ -1505,19 +1535,19 @@ function commandsModule({
       const property = actor.getProperty();
 
       if (options.shade !== undefined) {
-        property.setShade(options.shade);
+        (property as any).setShade(options.shade);
       }
 
       if (options.ambient !== undefined) {
-        property.setAmbient(options.ambient);
+        (property as any).setAmbient(options.ambient);
       }
 
       if (options.diffuse !== undefined) {
-        property.setDiffuse(options.diffuse);
+        (property as any).setDiffuse(options.diffuse);
       }
 
       if (options.specular !== undefined) {
-        property.setSpecular(options.specular);
+        (property as any).setSpecular(options.specular);
       }
 
       viewport.render();
@@ -1527,7 +1557,7 @@ function commandsModule({
 
       const getCrosshairInstances = toolGroupId => {
         const toolGroup = toolGroupService.getToolGroup(toolGroupId);
-        crosshairInstances.push(toolGroup.getToolInstance('Crosshairs'));
+        crosshairInstances.push((toolGroup as any).getToolInstance('Crosshairs'));
       };
 
       if (!viewportId) {
@@ -1535,7 +1565,7 @@ function commandsModule({
         toolGroupIds.forEach(getCrosshairInstances);
       } else {
         const toolGroup = toolGroupService.getToolGroupForViewport(viewportId);
-        getCrosshairInstances(toolGroup.id);
+        getCrosshairInstances((toolGroup as any).id);
       }
 
       crosshairInstances.forEach(ins => {
@@ -1842,6 +1872,7 @@ function commandsModule({
         measurementService.remove(activeAnnotationUID);
       });
     },
+
     setDisplaySetsForViewports: ({ viewportsToUpdate }) => {
       const { cineService, viewportGridService } = servicesManager.services;
       // Stopping the cine of modified viewports before changing the viewports to
@@ -2016,11 +2047,11 @@ function commandsModule({
         actions.setToolActiveToolbar({
           toolName: 'CircularBrushForAutoSegmentAI',
           toolGroupIds: toolGroupIds,
-        });
+        } as any);
       } else {
         toolGroupIds.forEach(toolGroupId => {
           const toolGroup = cornerstoneTools.ToolGroupManager.getToolGroup(toolGroupId);
-          toolGroup.setToolPassive('CircularBrushForAutoSegmentAI');
+          (toolGroup as any).setToolPassive('CircularBrushForAutoSegmentAI');
         });
       }
 
@@ -2052,7 +2083,7 @@ function commandsModule({
       for (const toolGroupId of toolGroupIds) {
         const toolGroup = toolGroupService.getToolGroup(toolGroupId);
         toolNames?.forEach(toolName => {
-          toolGroup.setToolConfiguration(toolName, {
+          (toolGroup as any).setToolConfiguration(toolName, {
             threshold: {
               range: value,
             },
@@ -2106,12 +2137,76 @@ function commandsModule({
         return;
       }
 
-      viewport.setOrientation(orientation);
+      if (viewport instanceof BaseVolumeViewport) {
+        viewport.setOrientation(orientation);
+      }
       viewport.render();
 
       // update the orientation in the viewport info
       const viewportInfo = cornerstoneViewportService.getViewportInfo(viewportId);
       viewportInfo.setOrientation(orientation);
+    },
+    setViewportBlendMode: ({ viewportId, blendMode, volumeId, displaySetInstanceUID }) => {
+
+      const {
+        displaySetService,
+        cornerstoneViewportService,
+        viewportGridService,
+      } = servicesManager.services;
+
+      let volumeIdToUse = volumeId;
+      const viewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
+
+      const anyProjection = ['mip', 'minip', 'avg'].includes(blendMode?.toLowerCase());
+      if (viewport instanceof StackViewport && anyProjection) {
+        const displaySetUIDs = viewportGridService.getDisplaySetsUIDsForViewport(viewportId);
+        if (displaySetUIDs.length > 0) {
+          viewportGridService.setDisplaySetsForViewports([
+            {
+              viewportId,
+              displaySetInstanceUIDs: displaySetUIDs,
+              viewportOptions: {
+                viewportType: 'volume',
+                orientation: 'axial',
+                displaySetOptions: [
+                  {
+                    blendMode: getCornerstoneBlendMode(blendMode),
+                    slabThickness: 20,
+                  },
+                ],
+              },
+            },
+          ]);
+          return;
+        }
+      }
+
+      if (!volumeIdToUse && displaySetInstanceUID) {
+        if (viewport instanceof BaseVolumeViewport) {
+          const volumeIds = viewport.getAllVolumeIds();
+          volumeIdToUse = volumeIds.find(id => id.includes(displaySetInstanceUID));
+        }
+      }
+      cornerstoneViewportService.setBlendMode(viewportId, blendMode, volumeIdToUse);
+    },
+    setViewportSlabThickness: ({ viewportId, slabThickness }) => {
+      const { cornerstoneViewportService } = servicesManager.services;
+      const viewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
+
+      if (viewport instanceof BaseVolumeViewport) {
+        viewport.setSlabThickness(slabThickness);
+        viewport.render();
+
+        // Update displaySetOptions for persistence
+        const viewportInfo = cornerstoneViewportService.getViewportInfo(viewportId);
+        if (viewportInfo) {
+          const displaySetOptions = viewportInfo.getDisplaySetOptions();
+          if (displaySetOptions?.length > 0) {
+            displaySetOptions[0].slabThickness = slabThickness;
+            viewportInfo.setDisplaySetOptions(displaySetOptions);
+          }
+        }
+      }
     },
     /**
      * Toggles the horizontal flip state of the viewport.
@@ -2258,13 +2353,15 @@ function commandsModule({
     setDynamicCursorSizeForSculptorTool: ({ value: isDynamicCursorSize }) => {
       const viewportId = viewportGridService.getActiveViewportId();
       const toolGroup = toolGroupService.getToolGroupForViewport(viewportId);
-      const sculptorToolInstance = toolGroup.getToolInstance(toolNames.SculptorTool);
-      const oldConfiguration = sculptorToolInstance.configuration;
+      const sculptorToolInstance = (toolGroup as any)?.getToolInstance(toolNames.SculptorTool);
+      const oldConfiguration = sculptorToolInstance?.configuration;
 
-      sculptorToolInstance.configuration = {
-        ...oldConfiguration,
-        updateCursorSize: isDynamicCursorSize ? 'dynamic' : '',
-      };
+      if (sculptorToolInstance) {
+        sculptorToolInstance.configuration = {
+          ...oldConfiguration,
+          updateCursorSize: isDynamicCursorSize ? 'dynamic' : '',
+        };
+      }
     },
     setInterpolationToolConfiguration: ({ value: interpolateContours, toolNames }) => {
       const viewportId = viewportGridService.getActiveViewportId();
@@ -2277,13 +2374,13 @@ function commandsModule({
           enabled: interpolateContours,
         },
       };
-      toolGroup.setToolConfiguration(activeTool, interpolationConfig);
+      (toolGroup as any).setToolConfiguration(activeTool, interpolationConfig);
 
       // Now set the interpolation configuration for the other tools specified.
       if (toolNames) {
-        Object.values(toolGroup.getToolInstances()).forEach(toolInstance => {
+        Object.values((toolGroup as any).getToolInstances()).forEach((toolInstance: any) => {
           if (toolNames?.includes(toolInstance.toolName)) {
-            toolGroup.setToolConfiguration(toolInstance.toolName, interpolationConfig);
+            (toolGroup as any).setToolConfiguration(toolInstance.toolName, interpolationConfig);
           }
         });
       }
@@ -2291,7 +2388,7 @@ function commandsModule({
     setSimplifiedSplineForSplineContourSegmentationTool: ({ value: simplifiedSpline }) => {
       const viewportId = viewportGridService.getActiveViewportId();
       const toolGroup = toolGroupService.getToolGroupForViewport(viewportId);
-      Object.values(toolGroup.getToolInstances()).forEach(toolInstance => {
+      Object.values((toolGroup as any).getToolInstances()).forEach((toolInstance: any) => {
         if (toolInstance instanceof SplineContourSegmentationTool) {
           const oldConfiguration = toolInstance.configuration;
           toolInstance.configuration = {

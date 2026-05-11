@@ -10,7 +10,25 @@
 
 ## Local Development
 
-1. Create a `.env` file or export the variables:
+### Quick start (one command)
+
+```bash
+./scripts/dev-ahi.sh
+```
+
+Reads credentials from `.env.ahi` at repo root (gitignored), regenerates `ahi.local.js`, and starts the dev server on `http://localhost:3000`.
+
+`.env.ahi` format:
+
+```
+AHI_ENDPOINT=https://dicom-medical-imaging.<region>.amazonaws.com/datastore/<datastore-id>
+COGNITO_AUTHORITY=https://cognito-idp.<region>.amazonaws.com/<user-pool-id>
+COGNITO_CLIENT_ID=<app-client-id>
+```
+
+### Manual
+
+1. Export the variables:
 
 ```bash
 export AHI_ENDPOINT="https://dicom-medical-imaging.ap-southeast-2.amazonaws.com/datastore/<your-datastore-id>"
@@ -24,10 +42,12 @@ export COGNITO_CLIENT_ID="<your-client-id>"
 ./scripts/apply-config.sh
 ```
 
-3. Start the dev server:
+3. Start the dev server (bypass `yarn dev`, which hardcodes `APP_CONFIG=config/default.js`):
 
 ```bash
-APP_CONFIG=config/ahi.local.js yarn dev
+cd platform/app
+npx cross-env NODE_ENV=development APP_CONFIG=config/ahi.local.js \
+  webpack serve --config .webpack/webpack.pwa.js
 ```
 
 ## Static Build (S3 / Amplify)
@@ -60,3 +80,10 @@ The Docker entrypoint automatically substitutes the placeholders in the config a
 ## Config Template
 
 The config template is at `platform/app/public/config/ahi.js`. It contains `__AHI_ENDPOINT__`, `__COGNITO_AUTHORITY__`, and `__COGNITO_CLIENT_ID__` placeholders that are replaced at build/deploy time. Never commit real credentials to this file.
+
+## Operational Runbooks
+
+| Symptom | Runbook |
+|---|---|
+| Modified `PatientID` / `PatientName` in AHI not reflected in OHIF Tag Browser (SRs inheriting wrong tags) | [ahi-dicom-tag-update-runbook.md](ahi-dicom-tag-update-runbook.md) |
+| SR saved via OHIF STOW-RS but missing from QIDO / returns 404 on WADO-RS (AHI DICOMweb proxy indexing gap) | Run `IMAGE_SET_ID=<sr-id> bash scripts/ahi-reindex-sr.sh apply` (or `STUDY_UID=<uid>` to reindex all SRs in a study). Triggered automatically when the toast "SR saved but not yet indexed" appears in-app. Root cause: [AHI_DICOMWEB_BUG_REPORT.md](testdata/AUS002-001-SR/AHI_DICOMWEB_BUG_REPORT.md). |

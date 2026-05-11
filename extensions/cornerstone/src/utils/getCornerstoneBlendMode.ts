@@ -21,5 +21,9 @@ export default function getCornerstoneBlendMode(blendMode: string): Enums.BlendM
     return Enums.BlendModes.AVERAGE_INTENSITY_BLEND;
   }
 
+  if (blendMode.toLowerCase() === 'composite') {
+    return Enums.BlendModes.COMPOSITE;
+  }
+
   throw new Error(`Unsupported blend mode: ${blendMode}`);
 }

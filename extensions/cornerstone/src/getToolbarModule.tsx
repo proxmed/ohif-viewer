@@ -12,6 +12,7 @@ import NavigationComponent from './components/NavigationComponent/NavigationComp
 import TrackingStatus from './components/TrackingStatus/TrackingStatus';
 import ViewportColorbarsContainer from './components/ViewportColorbar';
 import AdvancedRenderingControls from './components/AdvancedRenderingControls';
+import MIPButton from './components/MIPButton/MIPButton';
 
 const getDisabledState = (disabledText?: string) => ({
   disabled: true,
@@ -36,6 +37,10 @@ export default function getToolbarModule({ servicesManager, extensionManager }: 
       defaultComponent: AdvancedRenderingControls,
     },
     {
+      name: 'ohif.mipControl',
+      defaultComponent: MIPButton,
+    },
+    {
       name: 'evaluate.advancedRenderingControls',
       evaluate: ({ viewportId }) => {
         const viewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
@@ -46,9 +51,8 @@ export default function getToolbarModule({ servicesManager, extensionManager }: 
           };
         }
 
-        const hasColorbar = colorbarService?.hasColorbar(viewportId) || false;
         return {
-          disabled: !hasColorbar,
+          disabled: false,
         };
       },
     },
@@ -491,7 +495,7 @@ export default function getToolbarModule({ servicesManager, extensionManager }: 
         // enabled
         const synchronizer = synchronizers[0];
 
-        const isEnabled = synchronizer?._enabled;
+        const isEnabled = (synchronizer as any)._enabled ?? (synchronizer as any).isEnabled?.();
 
         return {
           className: utils.getToggledClassName(isEnabled),

@@ -247,6 +247,10 @@ const OHIFCornerstoneViewport = React.memo(
 
           const viewportInfo = cornerstoneViewportService.getViewportInfo(viewportId);
 
+          if (!viewportInfo) {
+            return;
+          }
+
           if (viewportInfo.hasDisplaySet(invalidatedDisplaySetInstanceUID)) {
             const viewportData = viewportInfo.getViewportData();
             const newViewportData = await cornerstoneCacheService.invalidateViewportData(

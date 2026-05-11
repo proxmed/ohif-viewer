@@ -56,6 +56,10 @@ const ViewportWindowLevel = ({
     const viewport = cornerstoneViewportService.getCornerstoneViewport(viewportId);
     const viewportInfo = cornerstoneViewportService.getViewportInfo(viewportId);
 
+    if (!viewport || !viewportInfo) {
+      return;
+    }
+
     getWindowLevelsData(viewport, viewportInfo, getVolumeOpacity).then(data => {
       setWindowLevels(data);
     });
@@ -184,7 +188,7 @@ const ViewportWindowLevel = ({
     const { unsubscribe } = cornerstoneViewportService.subscribe(
       cornerstoneViewportService.EVENTS.VIEWPORT_VOLUMES_CHANGED,
       ({ viewportInfo }) => {
-        if (viewportInfo.viewportId === viewportId) {
+        if (viewportInfo?.viewportId === viewportId) {
           updateViewportHistograms();
         }
       }
