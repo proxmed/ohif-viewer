@@ -6,7 +6,6 @@ import { adaptersSR } from '@cornerstonejs/adapters';
 
 import getFilteredCornerstoneToolState from './utils/getFilteredCornerstoneToolState';
 import hydrateStructuredReport from './utils/hydrateStructuredReport';
-import { verifyStowedSR } from './utils/verifyStowedSR';
 
 const { downloadBlob } = utils;
 
@@ -50,7 +49,7 @@ const _generateReport = (measurementData, additionalFindingTypes, options: Optio
 
 const commandsModule = (props: withAppTypes) => {
   const { servicesManager, extensionManager, commandsManager } = props;
-  const { customizationService, uiNotificationService } = servicesManager.services;
+  const { customizationService } = servicesManager.services;
 
   const actions = {
     changeColorMeasurement: ({ uid }) => {
@@ -145,32 +144,6 @@ const commandsModule = (props: withAppTypes) => {
         // When a new instance is added, it listens and
         // automatically calls makeDisplaySets
         DicomMetadataStore.addInstances([naturalizedReport], true);
-
-        // AHI's DICOMweb proxy sometimes fails to index STOW'd SR ImageSets
-        // for studies with complex topology. STOW returns 200 but QIDO never
-        // lists the SR, so the report vanishes on refresh. Detect the gap
-        // here and surface a warning so the operator can run the reindex
-        // runbook before the user closes the tab. See
-        // testdata/AUS002-001-SR/AHI_DICOMWEB_BUG_REPORT.md.
-        if (StudyInstanceUID && naturalizedReport.SeriesInstanceUID) {
-          const { indexed } = await verifyStowedSR({
-            StudyInstanceUID,
-            SeriesInstanceUID: naturalizedReport.SeriesInstanceUID,
-            dataSource,
-          });
-          if (!indexed && uiNotificationService) {
-            uiNotificationService.show({
-              title: 'SR saved but not yet indexed',
-              message:
-                'The report was accepted by the server but is not visible in the study series list. Refresh may hide it. Contact ops to run the AHI SR reindex runbook.',
-              type: 'warning',
-              duration: 10000,
-            });
-            log.warn(
-              `[DICOMSR] STOW'd SR ${naturalizedReport.SeriesInstanceUID} for study ${StudyInstanceUID} did not appear in QIDO within the verification window.`
-            );
-          }
-        }
 
         return naturalizedReport;
       } catch (error) {
