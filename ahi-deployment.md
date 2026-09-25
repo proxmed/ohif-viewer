@@ -8,9 +8,14 @@
 | `COGNITO_AUTHORITY` | Cognito User Pool issuer URL | `https://cognito-idp.<region>.amazonaws.com/<user-pool-id>` |
 | `COGNITO_CLIENT_ID` | Cognito App Client ID | `24336qr32beitfg549af71qf6u` |
 
+## Prerequisites
+
+- Node >= 24 and pnpm (the repo moved from yarn to pnpm in the upstream sync, #8)
+- `pnpm install` at the repo root
+
 ## Local Development
 
-1. Create a `.env` file or export the variables:
+1. Create `.env.ahi` at the repo root (gitignored) or export the variables:
 
 ```bash
 export AHI_ENDPOINT="https://dicom-medical-imaging.ap-southeast-2.amazonaws.com/datastore/<your-datastore-id>"
@@ -24,29 +29,36 @@ export COGNITO_CLIENT_ID="<your-client-id>"
 ./scripts/apply-config.sh
 ```
 
-3. Start the dev server:
+3. Start the dev server. `pnpm dev` pins `APP_CONFIG=config/default.js`, so call rspack directly:
 
 ```bash
-APP_CONFIG=config/ahi.local.js yarn dev
+cd platform/app
+NODE_ENV=development APP_CONFIG=config/ahi.local.js pnpm exec rspack serve --config .webpack/webpack.pwa.js
 ```
 
-## Static Build (S3 / Amplify)
+## Deploy (S3 + CloudFront)
+
+This is how `deploy/ahi` is actually hosted. The S3 bucket (`ohifviewer-assets-<env>-<region>`), the CloudFront distribution, and the Cognito pool are managed by Terraform in `tenacity-infra`. That repo's pipeline does not build or upload the viewer; you deploy it manually:
 
 ```bash
-export AHI_ENDPOINT="..."
-export COGNITO_AUTHORITY="..."
-export COGNITO_CLIENT_ID="..."
+DEPLOY_ENV=dev CLOUDFRONT_DISTRIBUTION_ID=<terraform output cloudfront_id> ./scripts/deploy-ahi.sh
+```
 
+The script sources `.env.ahi` if present and checks for Node >= 24. It then runs `apply-config.sh`, `pnpm install --frozen-lockfile`, and `APP_CONFIG=config/ahi.local.js pnpm build`, syncs `platform/app/dist/` to the bucket, and invalidates CloudFront. It needs AWS credentials for the target account.
+
+To build without deploying:
+
+```bash
 ./scripts/apply-config.sh
-APP_CONFIG=config/ahi.local.js yarn build
+APP_CONFIG=config/ahi.local.js pnpm build
 ```
-
-The build output in `platform/app/dist/` can be deployed to any static host.
 
 ## Docker
 
+Not used by the current hosting. The Dockerfile defaults to `config/default.js`, so pass the AHI config explicitly:
+
 ```bash
-docker build -t ohif-ahi .
+docker build --build-arg APP_CONFIG=config/ahi.js -t ohif-ahi .
 
 docker run -p 3000:80 \
   -e AHI_ENDPOINT="https://dicom-medical-imaging.ap-southeast-2.amazonaws.com/datastore/<id>" \
