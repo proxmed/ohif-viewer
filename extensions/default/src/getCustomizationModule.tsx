@@ -18,11 +18,15 @@ import progressLoadingBarCustomization from './customizations/progressLoadingBar
 import labellingFlowCustomization from './customizations/labellingFlowCustomization';
 import viewportNotificationCustomization from './customizations/notificationCustomization';
 import aboutModalCustomization from './customizations/aboutModalCustomization';
+import appearanceModalCustomization from './customizations/appearanceModalCustomization';
 import userPreferencesCustomization from './customizations/userPreferencesCustomization';
 import reportDialogCustomization from './customizations/reportDialogCustomization';
 import hotkeyBindingsCustomization from './customizations/hotkeyBindingsCustomization';
 import onboardingCustomization from './customizations/onboardingCustomization';
 import instanceSortingCriteriaCustomization from './customizations/instanceSortingCriteriaCustomization';
+import getWorkListCustomization from './customizations/workListCustomization';
+import headerRightSideCustomization from './customizations/headerRightSideCustomization';
+import hideHeaderUndoRedoCustomization from './customizations/hideHeaderUndoRedoCustomization';
 /**
  *
  * Note: this is an example of how the customization module can be used
@@ -39,12 +43,22 @@ export default function getCustomizationModule({ servicesManager, extensionManag
       value: helloPageCustomization,
     },
     {
+      name: 'theme',
+      value: appearanceModalCustomization,
+    },
+    {
       name: 'datasources',
       value: datasourcesCustomization,
     },
     {
       name: 'multimonitor',
       value: multimonitorCustomization,
+    },
+    {
+      // Opt-in: drops the undo/redo buttons from the right side of the
+      // header's menu bar, leaving the rest of that list in place.
+      name: 'hideHeaderUndoRedo',
+      value: hideHeaderUndoRedoCustomization,
     },
     {
       name: 'default',
@@ -71,6 +85,8 @@ export default function getCustomizationModule({ servicesManager, extensionManag
         ...hotkeyBindingsCustomization,
         ...onboardingCustomization,
         ...instanceSortingCriteriaCustomization,
+        ...getWorkListCustomization(),
+        ...headerRightSideCustomization,
       },
     },
   ];

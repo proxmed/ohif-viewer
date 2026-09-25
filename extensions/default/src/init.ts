@@ -1,5 +1,6 @@
 import { DicomMetadataStore, classes } from '@ohif/core';
 import { calculateSUVScalingFactors } from '@cornerstonejs/calculate-suv';
+import { ActiveThemeProvider } from '@ohif/ui-next';
 
 import getPTImageIdInstanceMetadata from './getPTImageIdInstanceMetadata';
 import { registerHangingProtocolAttributes } from './hangingprotocols';
@@ -16,12 +17,24 @@ export default function init({
   servicesManager,
   commandsManager,
   hotkeysManager,
+  serviceProvidersManager,
+  appConfig,
 }: withAppTypes): void {
-  const { toolbarService, cineService, viewportGridService, customizationService } = servicesManager.services;
+  const hasThemeModule =
+    Array.isArray(appConfig.customizationService) &&
+    appConfig.customizationService.some(
+      ref => typeof ref === 'string' && ref.includes('customizationModule.theme')
+    );
+
+  if (hasThemeModule) {
+    serviceProvidersManager.registerProvider('activeTheme', ActiveThemeProvider);
+  }
+  const { toolbarService, cineService, viewportGridService, customizationService } =
+    servicesManager.services;
 
   // Initialize custom Window/Level customizations from localStorage
   const customWLs = {};
-  for (let i = 1; i <= 10; i++) { // Supporting up to 10 potential custom slots
+  for (let i = 1; i <= 10; i++) {
     try {
       const saved = localStorage.getItem(`ohif.customWindowLevel.custom${i}`);
       if (saved) {
@@ -33,11 +46,14 @@ export default function init({
   }
 
   if (Object.keys(customWLs).length > 0) {
-    customizationService.setCustomizations({
-      customWindowLevels: {
-        value: customWLs,
+    customizationService.setCustomizations(
+      {
+        customWindowLevels: {
+          value: customWLs,
+        },
       },
-    }, customizationService.Scope.Global);
+      customizationService.Scope.Global
+    );
   }
 
   toolbarService.registerEventForToolbarUpdate(cineService, [
