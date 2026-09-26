@@ -15,7 +15,7 @@
 
 ## Local Development
 
-1. Create `.env.ahi` at the repo root (gitignored) or export the variables:
+1. Create `.env.ahi.dev` at the repo root (gitignored; one file per environment, e.g. `.env.ahi.prod`) or export the variables:
 
 ```bash
 export AHI_ENDPOINT="https://dicom-medical-imaging.ap-southeast-2.amazonaws.com/datastore/<your-datastore-id>"
@@ -26,6 +26,7 @@ export COGNITO_CLIENT_ID="<your-client-id>"
 2. Generate the local config:
 
 ```bash
+set -a; source .env.ahi.dev; set +a   # skip if you exported the variables
 ./scripts/apply-config.sh
 ```
 
@@ -44,7 +45,7 @@ This is how `deploy/ahi` is actually hosted. The S3 bucket (`ohifviewer-assets-<
 DEPLOY_ENV=dev CLOUDFRONT_DISTRIBUTION_ID=<terraform output cloudfront_id> ./scripts/deploy-ahi.sh
 ```
 
-The script sources `.env.ahi` if present and checks for Node >= 24. It then runs `apply-config.sh`, `pnpm install --frozen-lockfile`, and `APP_CONFIG=config/ahi.local.js pnpm build`, syncs `platform/app/dist/` to the bucket, and invalidates CloudFront. It needs AWS credentials for the target account.
+The script reads `.env.ahi.<DEPLOY_ENV>` (e.g. `.env.ahi.prod`) and refuses to run without it, so dev settings can't be deployed to prod. It checks for Node >= 24. It then runs `apply-config.sh`, `pnpm install --frozen-lockfile`, and `APP_CONFIG=config/ahi.local.js pnpm build`, syncs `platform/app/dist/` to the bucket, and invalidates CloudFront. It needs AWS credentials for the target account.
 
 To build without deploying:
 

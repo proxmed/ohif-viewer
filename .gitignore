@@ -78,3 +78,6 @@ auth.json
 
 # Viewer timing script test credentials
 .env.test
+
+# Per-environment AHI deploy settings
+.env.ahi*
