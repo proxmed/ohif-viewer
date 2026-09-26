@@ -75,3 +75,6 @@ libs/
 link-cs3d.js
 unlink-cs3d.js
 auth.json
+
+# Viewer timing script test credentials
+.env.test
