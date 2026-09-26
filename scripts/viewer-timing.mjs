@@ -54,15 +54,23 @@ await page.waitForURL(u => u.origin === new URL(BASE).origin && !u.pathname.star
 // Time AHI traffic from the first series-level request, so scripted and manual opening both work.
 let t0 = null;
 const meta = new Map(); // seriesUID -> seconds when its metadata finished
+let metaPending = 0;
 const now = () => (Date.now() - t0) / 1000;
 const seriesOf = u => (u.match(/\/series\/([^/?]+)/) || [])[1];
 page.on('request', r => {
   if (t0 === null && r.method() === 'GET' && r.url().includes('medical-imaging') && /\/series(\?|$|\/)/.test(r.url())) {
     t0 = Date.now();
   }
+  if (t0 !== null && r.method() === 'GET' && r.url().endsWith('/metadata')) metaPending++;
 });
 page.on('requestfinished', r => {
-  if (t0 !== null && r.method() === 'GET' && r.url().endsWith('/metadata')) meta.set(seriesOf(r.url()), now());
+  if (t0 !== null && r.method() === 'GET' && r.url().endsWith('/metadata')) {
+    meta.set(seriesOf(r.url()), now());
+    metaPending--;
+  }
+});
+page.on('requestfailed', r => {
+  if (t0 !== null && r.method() === 'GET' && r.url().endsWith('/metadata')) metaPending--;
 });
 
 // Open the study the way a user does: select the row, then Launch workflow.
@@ -84,27 +92,40 @@ await page.waitForURL(/\/viewer/, { timeout: 180_000 });
 while (t0 === null) await page.waitForTimeout(100);
 
 // First image = the viewport overlay shows an image index such as "1/1" or "14/28".
+const imageIndex = () =>
+  page.evaluate(
+    () =>
+      [...document.querySelectorAll('body *')]
+        .find(e => e.children.length === 0 && /^\s*(\d+\s*)?\(?\s*\d+\s*\/\s*[1-9]\d*\s*\)?\s*$/.test(e.textContent || ''))
+        ?.textContent.trim() ?? null
+  );
 const deadline = Date.now() + TIMEOUT_MS;
 let firstImage = NaN;
+let firstIndex = null;
 while (Date.now() < deadline) {
-  const shown = await page.evaluate(() =>
-    [...document.querySelectorAll('body *')].some(
-      e => e.children.length === 0 && /^\s*\d+\s*\/\s*\d+\s*$/.test(e.textContent || '')
-    )
-  );
-  if (shown) {
+  firstIndex = await imageIndex();
+  if (firstIndex) {
     firstImage = now();
     break;
   }
   await page.waitForTimeout(100);
 }
+// Keep going until every series' metadata has arrived (none pending for 2 s), so "last metadata" is really the last.
+let idleSince = Date.now();
+while (Date.now() < deadline && Date.now() - idleSince < 2000) {
+  if (metaPending > 0) idleSince = Date.now();
+  await page.waitForTimeout(100);
+}
+await page.waitForTimeout(1000); // let the protocol re-run after the last series
+const finalIndex = await imageIndex();
+if (process.env.SHOT) await page.screenshot({ path: process.env.SHOT });
 await browser.close();
 
 const lastMeta = meta.size ? Math.max(...meta.values()) : NaN;
 const fmt = s => (isNaN(s) ? 'n/a' : `${s.toFixed(1)}s`);
 console.log(
   `series_metadata=${meta.size} last_metadata=${fmt(lastMeta)} first_image=${isNaN(firstImage) ? 'NONE (timeout)' : fmt(firstImage)} ` +
-    `image_minus_last_metadata=${fmt(firstImage - lastMeta)}`
+    `image_minus_last_metadata=${fmt(firstImage - lastMeta)} image_index=${firstIndex} -> ${finalIndex}`
 );
 
 if (isNaN(firstImage)) process.exit(1);
