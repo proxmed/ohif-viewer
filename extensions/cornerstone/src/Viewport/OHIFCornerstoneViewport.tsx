@@ -70,13 +70,11 @@ const OHIFCornerstoneViewport = React.memo(
     }
 
     // Since we only have support for dynamic data in volume viewports, we should
-    // handle this case here and set the viewportType to volume if any of the
-    // displaySets are dynamic volumes
-    viewportOptions.viewportType = displaySets.some(
-      ds => ds.isDynamicVolume && ds.isReconstructable
-    )
-      ? 'volume'
-      : viewportOptions.viewportType;
+    // use a volume viewport if any of the displaySets are dynamic volumes.
+    // Don't write this into viewportOptions: it is the grid's stored state, so the
+    // viewport would stay a volume for later non-dynamic display sets (which can
+    // then exceed the GPU's 3D texture limit and render blank).
+    const hasDynamicVolume = displaySets.some(ds => ds.isDynamicVolume && ds.isReconstructable);
 
     const [scrollbarHeight, setScrollbarHeight] = useState('100px');
     const [enabledVPElement, setEnabledVPElement] = useState(null);
@@ -275,11 +273,14 @@ const OHIFCornerstoneViewport = React.memo(
       if (!viewportOptions.viewportType) {
         viewportOptions.viewportType = STACK;
       }
+      const effectiveViewportOptions = hasDynamicVolume
+        ? { ...viewportOptions, viewportType: 'volume' }
+        : viewportOptions;
 
       const loadViewportData = async () => {
         const viewportData = await cornerstoneCacheService.createViewportData(
           displaySets,
-          viewportOptions,
+          effectiveViewportOptions,
           dataSource,
           initialImageIndex
         );
@@ -289,7 +290,7 @@ const OHIFCornerstoneViewport = React.memo(
         // overlayable on this viewport's background.
         const presentations = getViewportPresentations(
           viewportId,
-          viewportOptions,
+          effectiveViewportOptions,
           displaySets,
           displaySetService
         );
@@ -307,7 +308,7 @@ const OHIFCornerstoneViewport = React.memo(
         cornerstoneViewportService.setViewportData(
           viewportId,
           viewportData,
-          viewportOptions,
+          effectiveViewportOptions,
           displaySetOptions,
           presentations
         );
