@@ -6,6 +6,8 @@ import hpScale from './hangingprotocols/hpScale';
 const defaultProtocol = {
   id: 'default',
   locked: true,
+  // AHI: apply the protocol once the first series' metadata arrives rather than waiting for all of them
+  hpInitiationCriteria: { minSeriesLoaded: 1 },
   // Don't store this hanging protocol as it applies to the currently active
   // display set by default
   // cacheId: null,
