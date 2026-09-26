@@ -2,21 +2,25 @@
 # Builds the AHI viewer and uploads it to the S3 + CloudFront hosting created by tenacity-infra.
 # Usage:
 #   DEPLOY_ENV=dev CLOUDFRONT_DISTRIBUTION_ID=<terraform output cloudfront_id> ./scripts/deploy-ahi.sh
-# Also needs AHI_ENDPOINT, COGNITO_AUTHORITY, COGNITO_CLIENT_ID (exported, or in .env.ahi),
-# Node >= 24, pnpm, and AWS credentials for the target account.
+# Reads AHI_ENDPOINT, COGNITO_AUTHORITY, COGNITO_CLIENT_ID from .env.ahi.<DEPLOY_ENV> (gitignored; required,
+# so one environment's settings can never be deployed to another). Also needs Node >= 24, pnpm, and AWS
+# credentials for the target account.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-if [ -f "$REPO_ROOT/.env.ahi" ]; then
-  set -a
-  source "$REPO_ROOT/.env.ahi"
-  set +a
-fi
-
 : "${DEPLOY_ENV:?Set DEPLOY_ENV (e.g. dev, prod)}"
+
+ENV_FILE="$REPO_ROOT/.env.ahi.${DEPLOY_ENV}"
+if [ ! -f "$ENV_FILE" ]; then
+  echo "Missing $ENV_FILE (AHI_ENDPOINT, COGNITO_AUTHORITY, COGNITO_CLIENT_ID for ${DEPLOY_ENV})" >&2
+  exit 1
+fi
+set -a
+source "$ENV_FILE"
+set +a
 : "${CLOUDFRONT_DISTRIBUTION_ID:?Set CLOUDFRONT_DISTRIBUTION_ID (terraform output cloudfront_id)}"
 AWS_REGION="${AWS_REGION:-ap-southeast-2}"
 BUCKET="ohifviewer-assets-${DEPLOY_ENV}-${AWS_REGION}"

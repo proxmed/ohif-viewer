@@ -75,3 +75,6 @@ libs/
 link-cs3d.js
 unlink-cs3d.js
 auth.json
+
+# Per-environment AHI deploy settings
+.env.ahi*
