@@ -25,12 +25,9 @@ function _getSyncedViewports(servicesManager: AppTypes.ServicesManager, srcViewp
   const { viewportGridService, cornerstoneViewportService } = servicesManager.services;
 
   const { viewports: viewportsStates } = viewportGridService.getState();
-  const srcViewportState = viewportsStates.get(srcViewportId);
 
-  if (srcViewportState?.viewportOptions?.viewportType !== 'volume') {
-    return [];
-  }
-
+  // Check the rendered viewport, not viewportOptions: dynamic data renders as a
+  // volume even when the grid's viewportType is stack.
   const srcViewport = cornerstoneViewportService.getCornerstoneViewport(srcViewportId);
 
   const srcVolume = srcViewport ? _getVolumeFromViewport(srcViewport) : null;
