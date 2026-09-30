@@ -17,6 +17,7 @@ import { retrieveStudyMetadata, deleteStudyMetadataPromise } from './retrieveStu
 import StaticWadoClient from './utils/StaticWadoClient';
 import getDirectURL from '../utils/getDirectURL';
 import { fixBulkDataURI } from './utils/fixBulkDataURI';
+import { stripNumericStringPadding } from './utils/stripNumericStringPadding';
 import { HeadersInterface } from '@ohif/core/src/types/RequestHeaders';
 import {
   getDatasetTransferSyntaxUID,
@@ -181,7 +182,7 @@ function createDicomWebApi(dicomWebConfig: DicomWebConfig, servicesManager) {
    * @returns naturalized dataset, with retrieveBulkData methods
    */
   const addRetrieveBulkData = instance => {
-    const naturalized = naturalizeDataset(instance);
+    const naturalized = naturalizeDataset(stripNumericStringPadding(instance));
 
     // if we know the server doesn't use bulkDataURI, then don't
     if (!dicomWebConfig.bulkDataURI?.enabled) {
